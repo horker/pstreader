@@ -19,4 +19,3 @@
     <ProjectReference Include="..\ThirdParty\XstReader.Base\XstReader.Base.csproj" />
   </ItemGroup>
 </Project>
-

@@ -59,6 +59,29 @@ internal static class OutputSerializer
         }
     }
 
+    public static void WriteCalendar(TextWriter writer, IReadOnlyList<CalendarItem> items, OutputFormat format)
+    {
+        if (format is OutputFormat.Json)
+        {
+            WriteJson(writer, items);
+            return;
+        }
+
+        WriteCsvRow(writer, "folderPath", "subject", "start", "end", "location", "isAllDay", "messageClass");
+        foreach (var item in items)
+        {
+            WriteCsvRow(
+                writer,
+                item.FolderPath,
+                item.Subject,
+                item.Start.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                item.End.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                item.Location,
+                item.IsAllDay,
+                item.MessageClass);
+        }
+    }
+
     public static TextWriter CreateWriter(string? outputPath, TextWriter standardOutput)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
@@ -88,4 +111,3 @@ internal static class OutputSerializer
         return $"\"{text.Replace("\"", "\"\"")}\"";
     }
 }
-

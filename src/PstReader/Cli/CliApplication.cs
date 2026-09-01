@@ -27,25 +27,39 @@ internal static class CliApplication
         {
             var header = PffHeaderReader.Read(options.InputPath);
             var service = new XstStoreService(options.InputPath, header);
-
-            if (options.Command is ReaderCommand.Calendar)
-            {
-                error.WriteLine("エラー: calendar コマンドはまだ実装されていません。");
-                return 2;
-            }
-
-            var catalog = service.ReadCatalog();
             using var writerScope = new WriterScope(
                 OutputSerializer.CreateWriter(options.OutputPath, output),
                 output);
 
-            if (options.Command is ReaderCommand.Info)
+            if (options.Command is ReaderCommand.Calendar)
             {
-                OutputSerializer.WriteStore(writerScope.Writer, catalog.Store, options.Format);
+                var result = service.ReadCalendar(options.FromUtc, options.ToUtc);
+                OutputSerializer.WriteCalendar(writerScope.Writer, result.Items, options.Format);
+                if (result.Warnings.Count > 0)
+                {
+                    error.WriteLine($"警告: {result.Warnings.Count} 件の項目またはフォルダーを読み飛ばしました。");
+                    foreach (var warning in result.Warnings.Take(10))
+                    {
+                        error.WriteLine($"警告: {warning}");
+                    }
+
+                    if (result.Warnings.Count > 10)
+                    {
+                        error.WriteLine($"警告: 残り {result.Warnings.Count - 10} 件は省略しました。");
+                    }
+                }
             }
             else
             {
-                OutputSerializer.WriteFolders(writerScope.Writer, catalog.Folders, options.Format);
+                var catalog = service.ReadCatalog();
+                if (options.Command is ReaderCommand.Info)
+                {
+                    OutputSerializer.WriteStore(writerScope.Writer, catalog.Store, options.Format);
+                }
+                else
+                {
+                    OutputSerializer.WriteFolders(writerScope.Writer, catalog.Folders, options.Format);
+                }
             }
 
             writerScope.Writer.Flush();
@@ -61,7 +75,7 @@ internal static class CliApplication
             error.WriteLine($"エラー: {ex.Message}");
             return 3;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XstReader.XstException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XstReader.XstException or NotSupportedException)
         {
             error.WriteLine($"エラー: PST/OST を読み取れませんでした: {ex.Message}");
             return 3;
@@ -95,4 +109,3 @@ internal static class CliApplication
         }
     }
 }
-

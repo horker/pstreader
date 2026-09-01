@@ -184,7 +184,9 @@ namespace XstReader
 
                 if (h.dwMagic != 0x4e444221)
                     throw new XstException("File is not a .ost or .pst file: the magic cookie is missing");
-                if (h.wMagicClient != 0x4d53)
+                // PST uses "SM" (0x4d53) and OST uses "SO" (0x4f53).
+                // The original check accepted only PST and rejected valid OST files.
+                if (h.wMagicClient != 0x4d53 && h.wMagicClient != 0x4f53)
                     throw new XstException("File is not a .ost or .pst file: the client magic is invalid");
                 if (h.bPlatformCreate != 0x01 || h.bPlatformAccess != 0x01)
                     throw new XstException("OST/PST header platform markers are invalid");
@@ -744,7 +746,14 @@ namespace XstReader
 
         private void ValidateBlock(byte[] blockBytes, ulong fileOffset, int dataLength, bool isUnicode, ulong bid, byte[] buffer, int offset)
         {
-            if (isUnicode)
+            if (IsUnicode4K)
+            {
+                // The 4K OST block trailer is undocumented and its placement varies
+                // between compressed and uncompressed blocks. The original XstReader
+                // deliberately did not validate it; retain that compatibility here.
+                return;
+            }
+            else if (isUnicode)
             {
                 var trailerOffset = blockBytes.Length - Marshal.SizeOf(typeof(BLOCKTRAILERUnicode));
                 var trailer = Map.MapType<BLOCKTRAILERUnicode>(blockBytes, trailerOffset);
