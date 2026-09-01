@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="src/PstReader/PstReader.csproj" />
+  <Project Path="tests/PstReader.Tests/PstReader.Tests.csproj" />
 </Solution>
