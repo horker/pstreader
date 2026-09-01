@@ -1,11 +1,3 @@
-namespace PstReader;
+using PstReader.Cli;
 
-internal static class Program
-{
-    public static int Main()
-    {
-        Console.WriteLine("pstreader: PST/OST reader");
-        return 0;
-    }
-}
-
+return CliApplication.Run(args, Console.Out, Console.Error);
