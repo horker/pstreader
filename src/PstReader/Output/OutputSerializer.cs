@@ -61,23 +61,36 @@ internal static class OutputSerializer
         }
     }
 
-    public static void WriteCalendar(TextWriter writer, IReadOnlyList<CalendarItem> items, OutputFormat format)
+    public static void WriteCalendar(
+        TextWriter writer,
+        IReadOnlyList<CalendarItem> items,
+        OutputFormat format,
+        TimeZoneInfo outputTimeZone)
     {
+        var outputItems = items.Select(item => new CalendarOutputItem(
+            item.FolderPath,
+            item.Subject,
+            TimeZoneInfo.ConvertTime(item.Start, outputTimeZone),
+            TimeZoneInfo.ConvertTime(item.End, outputTimeZone),
+            item.Location,
+            item.IsAllDay,
+            item.MessageClass)).ToArray();
+
         if (format is OutputFormat.Json)
         {
-            WriteJson(writer, items);
+            WriteJson(writer, outputItems);
             return;
         }
 
         WriteCsvRow(writer, "folderPath", "subject", "start", "end", "location", "isAllDay", "messageClass");
-        foreach (var item in items)
+        foreach (var item in outputItems)
         {
             WriteCsvRow(
                 writer,
                 item.FolderPath,
                 item.Subject,
-                item.Start.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
-                item.End.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                item.Start.ToString("O", CultureInfo.InvariantCulture),
+                item.End.ToString("O", CultureInfo.InvariantCulture),
                 item.Location,
                 item.IsAllDay,
                 item.MessageClass);
@@ -112,4 +125,13 @@ internal static class OutputSerializer
         var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         return $"\"{text.Replace("\"", "\"\"")}\"";
     }
+
+    private sealed record CalendarOutputItem(
+        string FolderPath,
+        string Subject,
+        DateTimeOffset Start,
+        DateTimeOffset End,
+        string Location,
+        bool IsAllDay,
+        string MessageClass);
 }

@@ -19,10 +19,10 @@ internal sealed record CliOptions(
     OutputFormat Format,
     string? OutputPath,
     DateTimeOffset? FromUtc,
-    DateTimeOffset? ToUtc);
+    DateTimeOffset? ToUtc,
+    TimeZoneInfo OutputTimeZone);
 
 internal sealed record CliParseResult(CliOptions? Options, string? Error, bool ShowHelp)
 {
     public bool IsSuccess => Options is not null;
 }
-

@@ -16,7 +16,7 @@ public sealed class CliParserTests
     }
 
     [Fact]
-    public void ParsesPeriodAsUtc()
+    public void ParsesExplicitOffsetAndUnqualifiedLocalTimeAsUtc()
     {
         var result = CliParser.Parse([
             "calendar",
@@ -29,7 +29,13 @@ public sealed class CliParserTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DateTimeOffset.Parse("2026-01-01T00:00:00Z"), result.Options!.FromUtc);
-        Assert.Equal(DateTimeOffset.Parse("2026-02-01T00:00:00Z"), result.Options.ToUtc);
+        var expectedLocalMidnightUtc = new DateTimeOffset(
+            TimeZoneInfo.ConvertTimeToUtc(
+                new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Unspecified),
+                TimeZoneInfo.Local),
+            TimeSpan.Zero);
+        Assert.Equal(expectedLocalMidnightUtc, result.Options.ToUtc);
+        Assert.Equal(TimeZoneInfo.Local.Id, result.Options.OutputTimeZone.Id);
     }
 
     [Fact]
@@ -50,5 +56,40 @@ public sealed class CliParserTests
 
         Assert.False(result.IsSuccess);
     }
-}
 
+    [Fact]
+    public void ResolvesUtcOutputTimeZone()
+    {
+        var result = CliParser.Parse([
+            "calendar", "archive.pst", "--output-time-zone", "utc",
+        ]);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeZoneInfo.Utc.Id, result.Options!.OutputTimeZone.Id);
+    }
+
+    [Fact]
+    public void ResolvesArbitrarySystemOutputTimeZone()
+    {
+        var systemTimeZone = TimeZoneInfo.GetSystemTimeZones()
+            .First(zone => zone.Id != TimeZoneInfo.Local.Id && zone.Id != TimeZoneInfo.Utc.Id);
+
+        var result = CliParser.Parse([
+            "calendar", "archive.pst", "--time-zone", systemTimeZone.Id,
+        ]);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(systemTimeZone.Id, result.Options!.OutputTimeZone.Id);
+    }
+
+    [Fact]
+    public void RejectsUnknownOutputTimeZone()
+    {
+        var result = CliParser.Parse([
+            "calendar", "archive.pst", "--output-time-zone", "Not/A-Time-Zone",
+        ]);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("タイムゾーン", result.Error);
+    }
+}

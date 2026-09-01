@@ -1,3 +1,4 @@
+using System.Text.Json;
 using PstReader.Cli;
 using PstReader.Models;
 using PstReader.Output;
@@ -52,7 +53,7 @@ public sealed class CalendarAndOutputTests
             true,
             "IPM.Appointment");
 
-        OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json);
+        OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json, TimeZoneInfo.Local);
 
         var json = writer.ToString();
         Assert.Contains("ルート/予定表", json);
@@ -60,5 +61,56 @@ public sealed class CalendarAndOutputTests
         Assert.Contains("日本", json);
         Assert.DoesNotContain("\\u30EB", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("\\u65E5", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void JsonWriterConvertsTimesToRequestedTimeZone()
+    {
+        using var writer = new StringWriter();
+        var outputTimeZone = TimeZoneInfo.CreateCustomTimeZone(
+            "Test UTC+09",
+            TimeSpan.FromHours(9),
+            "Test UTC+09",
+            "Test UTC+09");
+        var item = new CalendarItem(
+            "Root/Calendar",
+            "Appointment",
+            DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+            DateTimeOffset.Parse("2026-01-01T01:00:00Z"),
+            string.Empty,
+            false,
+            "IPM.Appointment");
+
+        OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json, outputTimeZone);
+
+        using var document = JsonDocument.Parse(writer.ToString());
+        var outputItem = document.RootElement[0];
+        Assert.Equal(DateTimeOffset.Parse("2026-01-01T09:00:00+09:00"), outputItem.GetProperty("start").GetDateTimeOffset());
+        Assert.Equal(DateTimeOffset.Parse("2026-01-01T10:00:00+09:00"), outputItem.GetProperty("end").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public void CsvWriterConvertsTimesToRequestedTimeZone()
+    {
+        using var writer = new StringWriter();
+        var outputTimeZone = TimeZoneInfo.CreateCustomTimeZone(
+            "Test UTC-08",
+            TimeSpan.FromHours(-8),
+            "Test UTC-08",
+            "Test UTC-08");
+        var item = new CalendarItem(
+            "Root/Calendar",
+            "Appointment",
+            DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+            DateTimeOffset.Parse("2026-01-01T01:00:00Z"),
+            string.Empty,
+            false,
+            "IPM.Appointment");
+
+        OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Csv, outputTimeZone);
+
+        var csv = writer.ToString();
+        Assert.Contains("\"2025-12-31T16:00:00.0000000-08:00\"", csv);
+        Assert.Contains("\"2025-12-31T17:00:00.0000000-08:00\"", csv);
     }
 }

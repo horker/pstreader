@@ -24,6 +24,7 @@ pstreader info <file> [--format json|csv] [--output <file>]
 pstreader folders <file> [--format json|csv] [--output <file>]
 pstreader calendar <file> [--from <date>] [--to <date>]
                    [--format json|csv] [--output <file>]
+                   [--output-time-zone <local|utc|time-zone-id>]
 ```
 
 コマンドを省略した場合は `calendar` として扱います。`--output` を省略すると標準出力へ
@@ -54,9 +55,28 @@ pstreader calendar <file> [--from <date>] [--to <date>]
   --output calendar.json
 ```
 
-期間は UTC に正規化し、`--from` を含み `--to` を含まない半開区間として扱います。
-期間に少しでも重なる予定を出力します。タイムゾーンを省略した日時は UTC として解釈し、
-開始・終了日時は UTC で出力します。
+期間は内部で UTC に正規化し、`--from` を含み `--to` を含まない半開区間として扱います。
+期間に少しでも重なる予定を出力します。入力日時に UTC オフセットや `Z` がない場合は、
+実行環境のローカルタイムゾーンとして解釈します。夏時間の切り替えにより存在しない日時、
+または二通りに解釈できる日時には、明示的な UTC オフセットを指定してください。
+
+開始・終了日時は既定で実行環境のローカルタイムゾーンに変換して出力します。UTC または
+別のタイムゾーンで出力する場合は、次のように指定します。
+
+```powershell
+# UTC
+.\pstreader.exe calendar "C:\Data\mailbox.ost" `
+  --from "2026-01-01" --to "2026-02-01" `
+  --output-time-zone utc
+
+# Windows の TimeZoneInfo ID
+.\pstreader.exe calendar "C:\Data\mailbox.ost" `
+  --output-time-zone "Tokyo Standard Time"
+```
+
+`local` はローカルタイムゾーンを明示します。`--time-zone` は
+`--output-time-zone` の短縮別名です。任意指定には、実行環境で
+`TimeZoneInfo.FindSystemTimeZoneById` が解決できるタイムゾーン ID を使用します。
 
 CSV の列は次のとおりです。
 
@@ -135,4 +155,3 @@ Office、XstReader の別ファイルをインストールする必要はあり�
 同梱する `XstReader.Base` の出典、固定した上流コミット、およびローカル互換修正は
 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) に記載しています。ライセンス全文は
 [`licenses/XstReader-MS-PL.md`](licenses/XstReader-MS-PL.md) に含まれます。
-

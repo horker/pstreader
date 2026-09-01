@@ -32,6 +32,8 @@ internal static class CliParser
         string? outputPath = null;
         DateTimeOffset? fromUtc = null;
         DateTimeOffset? toUtc = null;
+        var outputTimeZone = TimeZoneInfo.Local;
+        var outputTimeZoneSpecified = false;
 
         while (index < args.Length)
         {
@@ -76,14 +78,29 @@ internal static class CliParser
                     }
 
                     break;
+                case "--time-zone":
+                case "--output-time-zone":
+                    if (!TryTakeValue(args, ref index, option, out var timeZoneValue, out var timeZoneValueError))
+                    {
+                        return Failure(timeZoneValueError!);
+                    }
+
+                    if (!TryResolveTimeZone(timeZoneValue!, out outputTimeZone, out var timeZoneError))
+                    {
+                        return Failure(timeZoneError!);
+                    }
+
+                    outputTimeZoneSpecified = true;
+                    break;
                 default:
                     return Failure($"不明なオプションです: {option}");
             }
         }
 
-        if (command is not ReaderCommand.Calendar && (fromUtc is not null || toUtc is not null))
+        if (command is not ReaderCommand.Calendar &&
+            (fromUtc is not null || toUtc is not null || outputTimeZoneSpecified))
         {
-            return Failure("--from と --to は calendar コマンドでのみ使用できます。");
+            return Failure("--from、--to、--output-time-zone は calendar コマンドでのみ使用できます。");
         }
 
         if (fromUtc is not null && toUtc is not null && fromUtc >= toUtc)
@@ -92,7 +109,7 @@ internal static class CliParser
         }
 
         return new CliParseResult(
-            new CliOptions(command.Value, inputPath, format, outputPath, fromUtc, toUtc),
+            new CliOptions(command.Value, inputPath, format, outputPath, fromUtc, toUtc, outputTimeZone),
             null,
             false);
     }
@@ -137,22 +154,106 @@ internal static class CliParser
             return false;
         }
 
-        if (!DateTimeOffset.TryParse(
+        if (HasExplicitOffset(text!))
+        {
+            if (!DateTimeOffset.TryParse(
+                    text,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AdjustToUniversal,
+                    out var parsed))
+            {
+                value = null;
+                error = $"{option} の日時を解釈できません: {text}";
+                return false;
+            }
+
+            value = parsed.ToUniversalTime();
+            error = null;
+            return true;
+        }
+
+        if (!DateTime.TryParse(
                 text,
                 CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var parsed))
+                DateTimeStyles.AllowWhiteSpaces,
+                out var parsedLocal))
         {
             value = null;
             error = $"{option} の日時を解釈できません: {text}";
             return false;
         }
 
-        value = parsed.ToUniversalTime();
+        parsedLocal = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
+        if (TimeZoneInfo.Local.IsInvalidTime(parsedLocal))
+        {
+            value = null;
+            error = $"{option} はローカルタイムゾーンに存在しない日時です。UTC オフセットを指定してください: {text}";
+            return false;
+        }
+
+        if (TimeZoneInfo.Local.IsAmbiguousTime(parsedLocal))
+        {
+            value = null;
+            error = $"{option} はローカルタイムゾーンで曖昧な日時です。UTC オフセットを指定してください: {text}";
+            return false;
+        }
+
+        var utc = TimeZoneInfo.ConvertTimeToUtc(parsedLocal, TimeZoneInfo.Local);
+        value = new DateTimeOffset(utc, TimeSpan.Zero);
         error = null;
         return true;
     }
 
+    private static bool HasExplicitOffset(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.EndsWith("Z", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var timeSeparator = Math.Max(trimmed.LastIndexOf('T'), trimmed.LastIndexOf(' '));
+        if (timeSeparator < 0)
+        {
+            return false;
+        }
+
+        return trimmed.IndexOf('+', timeSeparator + 1) >= 0 ||
+               trimmed.IndexOf('-', timeSeparator + 1) >= 0;
+    }
+
+    private static bool TryResolveTimeZone(
+        string value,
+        out TimeZoneInfo timeZone,
+        out string? error)
+    {
+        if (value.Equals("local", StringComparison.OrdinalIgnoreCase))
+        {
+            timeZone = TimeZoneInfo.Local;
+            error = null;
+            return true;
+        }
+
+        if (value.Equals("utc", StringComparison.OrdinalIgnoreCase))
+        {
+            timeZone = TimeZoneInfo.Utc;
+            error = null;
+            return true;
+        }
+
+        try
+        {
+            timeZone = TimeZoneInfo.FindSystemTimeZoneById(value);
+            error = null;
+            return true;
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            timeZone = TimeZoneInfo.Local;
+            error = $"出力タイムゾーンが見つからないか、定義が不正です: {value}";
+            return false;
+        }
+    }
+
     private static CliParseResult Failure(string error) => new(null, error, false);
 }
-
