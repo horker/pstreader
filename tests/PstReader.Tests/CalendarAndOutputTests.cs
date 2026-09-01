@@ -1,3 +1,5 @@
+using PstReader.Cli;
+using PstReader.Models;
 using PstReader.Output;
 using PstReader.Services;
 
@@ -36,5 +38,27 @@ public sealed class CalendarAndOutputTests
             "\"a,b\",\"say \"\"hi\"\"\",\"True\"" + Environment.NewLine,
             writer.ToString());
     }
-}
 
+    [Fact]
+    public void JsonWriterKeepsUnicodeCharactersReadable()
+    {
+        using var writer = new StringWriter();
+        var item = new CalendarItem(
+            "ルート/予定表",
+            "振替休日（元旦）",
+            DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+            DateTimeOffset.Parse("2026-01-02T00:00:00Z"),
+            "日本",
+            true,
+            "IPM.Appointment");
+
+        OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json);
+
+        var json = writer.ToString();
+        Assert.Contains("ルート/予定表", json);
+        Assert.Contains("振替休日（元旦）", json);
+        Assert.Contains("日本", json);
+        Assert.DoesNotContain("\\u30EB", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\\u65E5", json, StringComparison.OrdinalIgnoreCase);
+    }
+}
