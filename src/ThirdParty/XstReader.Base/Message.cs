@@ -129,7 +129,7 @@ namespace XstReader
             Attachments.Clear();
         }
 
-        public string GetBodyAsHtmlString()
+        public string GetBodyAsHtmlString(bool escapeUnicode = true)
         {
             if (BodyHtml != null)
                 return BodyHtml; // This will be plain ASCII
@@ -138,11 +138,12 @@ namespace XstReader
                 var e = GetEncoding();
                 if (e != null)
                 {
-                    return EscapeUnicodeCharacters(new String(e.GetChars(Html)));
+                    var html = new String(e.GetChars(Html));
+                    return escapeUnicode ? EscapeUnicodeCharacters(html) : html;
                 }
             }
             else if (Body != null) // Not really expecting this as a source of HTML
-                return EscapeUnicodeCharacters(Body);
+                return escapeUnicode ? EscapeUnicodeCharacters(Body) : Body;
 
             return null;
         }

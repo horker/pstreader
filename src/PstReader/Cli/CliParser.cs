@@ -34,6 +34,7 @@ internal static class CliParser
         DateTimeOffset? toUtc = null;
         var outputTimeZone = TimeZoneInfo.Local;
         var outputTimeZoneSpecified = false;
+        var includeBody = false;
 
         while (index < args.Length)
         {
@@ -92,15 +93,18 @@ internal static class CliParser
 
                     outputTimeZoneSpecified = true;
                     break;
+                case "--include-body":
+                    includeBody = true;
+                    break;
                 default:
                     return Failure($"不明なオプションです: {option}");
             }
         }
 
         if (command is not ReaderCommand.Calendar &&
-            (fromUtc is not null || toUtc is not null || outputTimeZoneSpecified))
+            (fromUtc is not null || toUtc is not null || outputTimeZoneSpecified || includeBody))
         {
-            return Failure("--from、--to、--output-time-zone は calendar コマンドでのみ使用できます。");
+            return Failure("--from、--to、--output-time-zone、--include-body は calendar コマンドでのみ使用できます。");
         }
 
         if (fromUtc is not null && toUtc is not null && fromUtc >= toUtc)
@@ -109,7 +113,7 @@ internal static class CliParser
         }
 
         return new CliParseResult(
-            new CliOptions(command.Value, inputPath, format, outputPath, fromUtc, toUtc, outputTimeZone),
+            new CliOptions(command.Value, inputPath, format, outputPath, fromUtc, toUtc, outputTimeZone, includeBody),
             null,
             false);
     }

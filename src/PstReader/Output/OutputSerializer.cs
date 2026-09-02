@@ -65,7 +65,8 @@ internal static class OutputSerializer
         TextWriter writer,
         IReadOnlyList<CalendarItem> items,
         OutputFormat format,
-        TimeZoneInfo outputTimeZone)
+        TimeZoneInfo outputTimeZone,
+        bool includeBody = false)
     {
         var outputItems = items.Select(item => new CalendarOutputItem(
             item.FolderPath,
@@ -78,22 +79,59 @@ internal static class OutputSerializer
 
         if (format is OutputFormat.Json)
         {
-            WriteJson(writer, outputItems);
+            if (includeBody)
+            {
+                WriteJson(writer, outputItems.Select((item, index) => new CalendarOutputItemWithBody(
+                    item.FolderPath,
+                    item.Subject,
+                    item.Start,
+                    item.End,
+                    item.Location,
+                    item.IsAllDay,
+                    item.MessageClass,
+                    items[index].Body,
+                    items[index].BodyFormat)).ToArray());
+            }
+            else
+            {
+                WriteJson(writer, outputItems);
+            }
+
             return;
         }
 
-        WriteCsvRow(writer, "folderPath", "subject", "start", "end", "location", "isAllDay", "messageClass");
-        foreach (var item in outputItems)
+        if (includeBody)
         {
             WriteCsvRow(
                 writer,
+                "folderPath", "subject", "start", "end", "location", "isAllDay", "messageClass", "body", "bodyFormat");
+        }
+        else
+        {
+            WriteCsvRow(writer, "folderPath", "subject", "start", "end", "location", "isAllDay", "messageClass");
+        }
+
+        for (var index = 0; index < outputItems.Length; index++)
+        {
+            var item = outputItems[index];
+            var values = new List<object?>
+            {
                 item.FolderPath,
                 item.Subject,
                 item.Start.ToString("O", CultureInfo.InvariantCulture),
                 item.End.ToString("O", CultureInfo.InvariantCulture),
                 item.Location,
                 item.IsAllDay,
-                item.MessageClass);
+                item.MessageClass,
+            };
+
+            if (includeBody)
+            {
+                values.Add(items[index].Body);
+                values.Add(items[index].BodyFormat);
+            }
+
+            WriteCsvRow(writer, values.ToArray());
         }
     }
 
@@ -134,4 +172,15 @@ internal static class OutputSerializer
         string Location,
         bool IsAllDay,
         string MessageClass);
+
+    private sealed record CalendarOutputItemWithBody(
+        string FolderPath,
+        string Subject,
+        DateTimeOffset Start,
+        DateTimeOffset End,
+        string Location,
+        bool IsAllDay,
+        string MessageClass,
+        string? Body,
+        string? BodyFormat);
 }

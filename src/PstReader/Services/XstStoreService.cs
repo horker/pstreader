@@ -38,7 +38,10 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
         return (store, folders);
     }
 
-    public CalendarReadResult ReadCalendar(DateTimeOffset? fromUtc, DateTimeOffset? toUtc)
+    public CalendarReadResult ReadCalendar(
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        bool includeBody = false)
     {
         var xst = new XstFile(inputPath);
         var root = xst.ReadFolderTree();
@@ -63,7 +66,7 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
                 try
                 {
                     xst.ReadMessageDetails(message);
-                    var calendarItem = CreateCalendarItem(entry.Folder, message, fromUtc, toUtc);
+                    var calendarItem = CreateCalendarItem(entry.Folder, message, fromUtc, toUtc, includeBody);
                     if (calendarItem is not null)
                     {
                         items.Add(calendarItem);
@@ -87,7 +90,8 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
         Folder folder,
         Message message,
         DateTimeOffset? fromUtc,
-        DateTimeOffset? toUtc)
+        DateTimeOffset? toUtc,
+        bool includeBody)
     {
         var messageClass = GetStandardString(message.Properties, 0x001A) ?? string.Empty;
         var start = GetNamedDate(message.Properties, AppointmentPropertySet, 0x820D)
@@ -120,6 +124,7 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
                        ?? GetNamedString(message.Properties, MeetingPropertySet, 0x0002)
                        ?? string.Empty;
         var isAllDay = GetNamedBoolean(message.Properties, AppointmentPropertySet, 0x8215) ?? false;
+        var (body, bodyFormat) = includeBody ? ExtractBody(message) : (null, null);
 
         return new CalendarItem(
             NormalizePath(folder.Path),
@@ -128,7 +133,73 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
             end.Value,
             location,
             isAllDay,
-            messageClass);
+            messageClass,
+            body,
+            bodyFormat);
+    }
+
+    internal static (string? Body, string? BodyFormat) ExtractBody(Message message)
+    {
+        if (message.IsBodyHtml)
+        {
+            var html = TryGetHtmlBody(message);
+            if (html is not null)
+            {
+                return (html, "html");
+            }
+        }
+
+        if (message.IsBodyRtf)
+        {
+            var rtf = TryGetRtfBody(message);
+            if (rtf is not null)
+            {
+                return (rtf, "rtf");
+            }
+        }
+
+        if (message.Body is not null)
+        {
+            return (message.Body, "text");
+        }
+
+        var fallbackHtml = TryGetHtmlBody(message);
+        if (fallbackHtml is not null)
+        {
+            return (fallbackHtml, "html");
+        }
+
+        var fallbackRtf = TryGetRtfBody(message);
+        return fallbackRtf is null ? (null, null) : (fallbackRtf, "rtf");
+    }
+
+    private static string? TryGetHtmlBody(Message message)
+    {
+        try
+        {
+            return message.GetBodyAsHtmlString(escapeUnicode: false);
+        }
+        catch (Exception ex) when (IsRecoverableItemError(ex))
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetRtfBody(Message message)
+    {
+        if (message.RtfCompressed is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        try
+        {
+            return message.GetBodyAsRtfString();
+        }
+        catch (Exception ex) when (IsRecoverableItemError(ex))
+        {
+            return null;
+        }
     }
 
     internal static bool Overlaps(

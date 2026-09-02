@@ -15,3 +15,5 @@ Local modifications: header validation accepts both the PST client magic
 (`SM`) and the OST client magic (`SO`). For 4 KiB OST data blocks, the fork's
 strict trailer check is disabled to retain the original XstReader behavior;
 the format is undocumented and the strict check rejects valid Outlook OSTs.
+`Message.GetBodyAsHtmlString` also has an optional mode that preserves decoded
+Unicode characters instead of converting them to numeric HTML entities.

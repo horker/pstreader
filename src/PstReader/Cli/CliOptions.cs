@@ -20,7 +20,8 @@ internal sealed record CliOptions(
     string? OutputPath,
     DateTimeOffset? FromUtc,
     DateTimeOffset? ToUtc,
-    TimeZoneInfo OutputTimeZone);
+    TimeZoneInfo OutputTimeZone,
+    bool IncludeBody);
 
 internal sealed record CliParseResult(CliOptions? Options, string? Error, bool ShowHelp)
 {

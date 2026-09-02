@@ -33,12 +33,13 @@ internal static class CliApplication
 
             if (options.Command is ReaderCommand.Calendar)
             {
-                var result = service.ReadCalendar(options.FromUtc, options.ToUtc);
+                var result = service.ReadCalendar(options.FromUtc, options.ToUtc, options.IncludeBody);
                 OutputSerializer.WriteCalendar(
                     writerScope.Writer,
                     result.Items,
                     options.Format,
-                    options.OutputTimeZone);
+                    options.OutputTimeZone,
+                    options.IncludeBody);
                 if (result.Warnings.Count > 0)
                 {
                     error.WriteLine($"警告: {result.Warnings.Count} 件の項目またはフォルダーを読み飛ばしました。");
@@ -96,10 +97,12 @@ internal static class CliApplication
         writer.WriteLine("  pstreader calendar <file> [--from <date>] [--to <date>]");
         writer.WriteLine("                     [--format json|csv] [--output <file>]");
         writer.WriteLine("                     [--output-time-zone <local|utc|time-zone-id>]");
+        writer.WriteLine("                     [--include-body]");
         writer.WriteLine();
         writer.WriteLine("コマンドを省略した場合は calendar として扱います。");
         writer.WriteLine("入力日時にタイムゾーンがない場合はローカルタイムとして解釈します。");
         writer.WriteLine("出力時刻は既定でローカルタイムです。--time-zone は短縮別名です。");
+        writer.WriteLine("--include-body を指定すると、本文と本文形式を出力します。");
     }
 
     private sealed class WriterScope(TextWriter writer, TextWriter standardOutput) : IDisposable

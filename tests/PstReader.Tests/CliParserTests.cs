@@ -92,4 +92,26 @@ public sealed class CliParserTests
         Assert.False(result.IsSuccess);
         Assert.Contains("タイムゾーン", result.Error);
     }
+
+    [Fact]
+    public void EnablesBodyOutputForCalendar()
+    {
+        var result = CliParser.Parse([
+            "calendar", "archive.pst", "--include-body",
+        ]);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Options!.IncludeBody);
+    }
+
+    [Fact]
+    public void RejectsBodyOutputForNonCalendarCommand()
+    {
+        var result = CliParser.Parse([
+            "folders", "archive.pst", "--include-body",
+        ]);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("--include-body", result.Error);
+    }
 }

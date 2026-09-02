@@ -15,6 +15,7 @@ PST/OST を読み取る Windows 用 CLI です。一般ユーザー権限で動�
 - 内部ヘッダが OST である `.nst` 等も、拡張子に関係なく読み取ります。
 - ストア情報および全フォルダーを列挙します。
 - カレンダー項目の件名、開始、終了、場所、終日フラグ、Message Class を抽出します。
+- 必要に応じて、プレーンテキスト、HTML、または展開済み RTF の本文を抽出します。
 - 期間フィルターと JSON/CSV 出力に対応します。
 
 ## 使用方法
@@ -25,6 +26,7 @@ pstreader folders <file> [--format json|csv] [--output <file>]
 pstreader calendar <file> [--from <date>] [--to <date>]
                    [--format json|csv] [--output <file>]
                    [--output-time-zone <local|utc|time-zone-id>]
+                   [--include-body]
 ```
 
 コマンドを省略した場合は `calendar` として扱います。`--output` を省略すると標準出力へ
@@ -86,6 +88,27 @@ folderPath,subject,start,end,location,isAllDay,messageClass
 
 JSON では同名の camelCase プロパティを持つ配列を出力します。
 
+### 予定の本文を出力する
+
+既定では従来と同じ出力項目を維持し、本文を出力しません。本文が必要な場合は
+`--include-body` を指定します。
+
+```powershell
+.\pstreader.exe calendar "C:\Data\mailbox.ost" `
+  --include-body `
+  --format json `
+  --output calendar-with-body.json
+```
+
+JSON には `body` と `bodyFormat` が追加されます。`bodyFormat` は `text`、`html`、
+`rtf` のいずれかです。対応する本文プロパティがない場合は、両方とも `null` になります。
+CSV では末尾に `body,bodyFormat` 列を追加します。改行、カンマ、二重引用符を含む本文は
+通常の CSV 規則に従って引用します。
+
+HTML はHTML文字列として、RTFは圧縮解除後のRTF文字列として出力します。書式を除いた
+プレーンテキストへの変換は行いません。OSTに本文が同期されていない項目や、暗号化・保護
+された項目では本文を取得できない場合があります。
+
 ## カレンダー項目の判定
 
 `PidTagMessageClass` が `IPM.Appointment` で始まる項目を対象とします。カレンダー固有値は
@@ -97,6 +120,7 @@ PST/OST の Name-to-ID Map を解決してから、主に次の named properties
 | 終了 | `PidLidAppointmentEndWhole` (`0x820E`) |
 | 場所 | `PidLidLocation` (`0x8208`) |
 | 終日 | `PidLidAppointmentSubType` (`0x8215`) |
+| 本文 | `PidTagBody` / `PidTagHtml` / `PidTagRtfCompressed` |
 
 開始・終了には `PidLidCommonStart` / `PidLidCommonEnd` と
 `PidTagStartDate` / `PidTagEndDate` のフォールバックも使用します。繰り返し予定の期間判定には

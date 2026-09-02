@@ -26,7 +26,9 @@ internal sealed record CalendarItem(
     DateTimeOffset End,
     string Location,
     bool IsAllDay,
-    string MessageClass);
+    string MessageClass,
+    string? Body = null,
+    string? BodyFormat = null);
 
 internal sealed record CalendarReadResult(
     IReadOnlyList<CalendarItem> Items,

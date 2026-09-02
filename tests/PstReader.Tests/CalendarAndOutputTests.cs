@@ -3,6 +3,7 @@ using PstReader.Cli;
 using PstReader.Models;
 using PstReader.Output;
 using PstReader.Services;
+using XstReader;
 
 namespace PstReader.Tests;
 
@@ -113,4 +114,90 @@ public sealed class CalendarAndOutputTests
         Assert.Contains("\"2025-12-31T16:00:00.0000000-08:00\"", csv);
         Assert.Contains("\"2025-12-31T17:00:00.0000000-08:00\"", csv);
     }
+
+    [Fact]
+    public void JsonWriterOmitsBodyByDefault()
+    {
+        using var writer = new StringWriter();
+        var item = CreateItem("非表示の本文", "text");
+
+        OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json, TimeZoneInfo.Utc);
+
+        using var document = JsonDocument.Parse(writer.ToString());
+        var outputItem = document.RootElement[0];
+        Assert.False(outputItem.TryGetProperty("body", out _));
+        Assert.False(outputItem.TryGetProperty("bodyFormat", out _));
+    }
+
+    [Fact]
+    public void JsonWriterIncludesReadableBodyWhenRequested()
+    {
+        using var writer = new StringWriter();
+        var item = CreateItem("日本語の予定本文", "text");
+
+        OutputSerializer.WriteCalendar(
+            writer,
+            [item],
+            OutputFormat.Json,
+            TimeZoneInfo.Utc,
+            includeBody: true);
+
+        var json = writer.ToString();
+        using var document = JsonDocument.Parse(json);
+        var outputItem = document.RootElement[0];
+        Assert.Equal("日本語の予定本文", outputItem.GetProperty("body").GetString());
+        Assert.Equal("text", outputItem.GetProperty("bodyFormat").GetString());
+        Assert.Contains("日本語の予定本文", json);
+        Assert.DoesNotContain("\\u65E5", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CsvWriterIncludesBodyColumnsWhenRequested()
+    {
+        using var writer = new StringWriter();
+        var item = CreateItem("1行目\r\n\"引用\"", "text");
+
+        OutputSerializer.WriteCalendar(
+            writer,
+            [item],
+            OutputFormat.Csv,
+            TimeZoneInfo.Utc,
+            includeBody: true);
+
+        var csv = writer.ToString();
+        Assert.StartsWith(
+            "\"folderPath\",\"subject\",\"start\",\"end\",\"location\",\"isAllDay\",\"messageClass\",\"body\",\"bodyFormat\"",
+            csv);
+        Assert.Contains("\"1行目\r\n\"\"引用\"\"\"", csv);
+    }
+
+    [Fact]
+    public void ExtractsPlainAndHtmlBodiesWithTheirFormats()
+    {
+        var plain = XstStoreService.ExtractBody(new Message { Body = "プレーン本文" });
+        var html = XstStoreService.ExtractBody(new Message { BodyHtml = "<p>HTML本文</p>" });
+
+        Assert.Equal(("プレーン本文", "text"), plain);
+        Assert.Equal(("<p>HTML本文</p>", "html"), html);
+    }
+
+    [Fact]
+    public void HtmlBodyCanRemainReadableUnicode()
+    {
+        var message = new Message { Body = "日本語" };
+
+        Assert.Equal("日本語", message.GetBodyAsHtmlString(escapeUnicode: false));
+        Assert.Equal("&#x65E5;&#x672C;&#x8A9E;", message.GetBodyAsHtmlString());
+    }
+
+    private static CalendarItem CreateItem(string? body, string? bodyFormat) => new(
+        "Root/Calendar",
+        "Appointment",
+        DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+        DateTimeOffset.Parse("2026-01-01T01:00:00Z"),
+        string.Empty,
+        false,
+        "IPM.Appointment",
+        body,
+        bodyFormat);
 }
