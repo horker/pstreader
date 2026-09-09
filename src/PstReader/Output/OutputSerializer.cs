@@ -135,6 +135,47 @@ internal static class OutputSerializer
         }
     }
 
+    public static void WriteTasks(TextWriter writer, IReadOnlyList<TaskItem> items, OutputFormat format,
+        TimeZoneInfo outputTimeZone, bool includeBody = false) =>
+        WriteItemRows(writer,
+            ["folderPath", "subject", "start", "due", "completed", "status", "percentComplete", "isComplete", "messageClass"],
+            items.Select(item => new object?[] { item.FolderPath, item.Subject,
+                ConvertDate(item.Start, outputTimeZone), ConvertDate(item.Due, outputTimeZone),
+                ConvertDate(item.Completed, outputTimeZone), item.Status, item.PercentComplete,
+                item.IsComplete, item.MessageClass, item.Body, item.BodyFormat }), format, includeBody);
+
+    public static void WriteMail(TextWriter writer, IReadOnlyList<MailItem> items, OutputFormat format,
+        TimeZoneInfo outputTimeZone, bool includeBody = false) =>
+        WriteItemRows(writer,
+            ["folderPath", "subject", "senderName", "senderAddress", "to", "cc", "bcc",
+                "received", "sent", "isRead", "hasAttachments", "flagStatus", "messageClass"],
+            items.Select(item => new object?[] { item.FolderPath, item.Subject, item.SenderName,
+                item.SenderAddress, item.To, item.Cc, item.Bcc,
+                ConvertDate(item.Received, outputTimeZone), ConvertDate(item.Sent, outputTimeZone),
+                item.IsRead, item.HasAttachments, item.FlagStatus, item.MessageClass, item.Body, item.BodyFormat }),
+            format, includeBody);
+
+    private static DateTimeOffset? ConvertDate(DateTimeOffset? value, TimeZoneInfo zone) =>
+        value is null ? null : TimeZoneInfo.ConvertTime(value.Value, zone);
+
+    private static void WriteItemRows(TextWriter writer, string[] columns, IEnumerable<object?[]> rows,
+        OutputFormat format, bool includeBody)
+    {
+        if (includeBody)
+            columns = [.. columns, "body", "bodyFormat"];
+        if (format is OutputFormat.Json)
+        {
+            WriteJson(writer, rows.Select(row => columns.Select((column, index) => (column, row[index]))
+                .ToDictionary(pair => pair.column, pair => pair.Item2)).ToArray());
+            return;
+        }
+
+        WriteCsvRow(writer, columns);
+        foreach (var row in rows)
+            WriteCsvRow(writer, row.Take(columns.Length).Select(value => value is DateTimeOffset date
+                ? date.ToString("O", CultureInfo.InvariantCulture) : value).ToArray());
+    }
+
     public static TextWriter CreateWriter(string? outputPath, TextWriter standardOutput)
     {
         if (string.IsNullOrWhiteSpace(outputPath))

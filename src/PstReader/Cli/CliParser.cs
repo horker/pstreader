@@ -35,6 +35,8 @@ internal static class CliParser
         var outputTimeZone = TimeZoneInfo.Local;
         var outputTimeZoneSpecified = false;
         var includeBody = false;
+        string? dateField = null;
+        var flaggedOnly = false;
 
         while (index < args.Length)
         {
@@ -93,6 +95,14 @@ internal static class CliParser
 
                     outputTimeZoneSpecified = true;
                     break;
+                case "--date-field":
+                    if (!TryTakeValue(args, ref index, option, out dateField, out var dateFieldError))
+                        return Failure(dateFieldError!);
+                    dateField = dateField!.ToLowerInvariant();
+                    break;
+                case "--flagged-only":
+                    flaggedOnly = true;
+                    break;
                 case "--include-body":
                     includeBody = true;
                     break;
@@ -101,11 +111,29 @@ internal static class CliParser
             }
         }
 
-        if (command is not ReaderCommand.Calendar &&
+        if (command is not (ReaderCommand.Calendar or ReaderCommand.Tasks or ReaderCommand.Mail) &&
             (fromUtc is not null || toUtc is not null || outputTimeZoneSpecified || includeBody))
         {
-            return Failure("--from、--to、--output-time-zone、--include-body は calendar コマンドでのみ使用できます。");
+            return Failure("--from、--to、--output-time-zone、--include-body は calendar、tasks、mail コマンドでのみ使用できます。");
         }
+
+        if (flaggedOnly && command is not ReaderCommand.Mail)
+            return Failure("--flagged-only は mail コマンドでのみ使用できます。");
+
+        if (dateField is not null && !(command switch
+            {
+                ReaderCommand.Tasks => dateField is "start" or "due" or "completed",
+                ReaderCommand.Mail => dateField is "received" or "sent",
+                _ => false,
+            }))
+            return Failure("--date-field は tasks では start|due|completed、mail では received|sent を指定してください。");
+
+        dateField ??= command switch
+        {
+            ReaderCommand.Tasks => "due",
+            ReaderCommand.Mail => "received",
+            _ => null,
+        };
 
         if (fromUtc is not null && toUtc is not null && fromUtc >= toUtc)
         {
@@ -113,7 +141,7 @@ internal static class CliParser
         }
 
         return new CliParseResult(
-            new CliOptions(command.Value, inputPath, format, outputPath, fromUtc, toUtc, outputTimeZone, includeBody),
+            new CliOptions(command.Value, inputPath, format, outputPath, fromUtc, toUtc, outputTimeZone, includeBody, dateField, flaggedOnly),
             null,
             false);
     }
@@ -123,6 +151,8 @@ internal static class CliParser
         "info" => ReaderCommand.Info,
         "folders" => ReaderCommand.Folders,
         "calendar" => ReaderCommand.Calendar,
+        "tasks" => ReaderCommand.Tasks,
+        "mail" => ReaderCommand.Mail,
         _ => null,
     };
 

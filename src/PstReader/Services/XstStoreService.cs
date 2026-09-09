@@ -4,7 +4,7 @@ using XstReader;
 
 namespace PstReader.Services;
 
-internal sealed class XstStoreService(string inputPath, PffHeader header)
+internal sealed partial class XstStoreService(string inputPath, PffHeader header)
 {
     private const string AppointmentPropertySet = "00062002-0000-0000-c000-000000000046";
     private const string CommonPropertySet = "00062008-0000-0000-c000-000000000046";
@@ -43,9 +43,19 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
         DateTimeOffset? toUtc,
         bool includeBody = false)
     {
+        var result = ReadItems((folder, message) =>
+            CreateCalendarItem(folder, message, fromUtc, toUtc, includeBody));
+        return new CalendarReadResult(
+            result.Items.OrderBy(item => item.Start)
+                .ThenBy(item => item.Subject, StringComparer.OrdinalIgnoreCase).ToArray(),
+            result.Warnings);
+    }
+
+    private ItemReadResult<T> ReadItems<T>(Func<Folder, Message, T?> createItem) where T : class
+    {
         var xst = new XstFile(inputPath);
         var root = xst.ReadFolderTree();
-        var items = new List<CalendarItem>();
+        var items = new List<T>();
         var warnings = new List<string>();
 
         foreach (var entry in EnumerateFolders(root))
@@ -66,10 +76,10 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
                 try
                 {
                     xst.ReadMessageDetails(message);
-                    var calendarItem = CreateCalendarItem(entry.Folder, message, fromUtc, toUtc, includeBody);
-                    if (calendarItem is not null)
+                    var item = createItem(entry.Folder, message);
+                    if (item is not null)
                     {
-                        items.Add(calendarItem);
+                        items.Add(item);
                     }
                 }
                 catch (Exception ex) when (IsRecoverableItemError(ex))
@@ -81,9 +91,7 @@ internal sealed class XstStoreService(string inputPath, PffHeader header)
             }
         }
 
-        return new CalendarReadResult(
-            items.OrderBy(item => item.Start).ThenBy(item => item.Subject, StringComparer.OrdinalIgnoreCase).ToArray(),
-            warnings);
+        return new ItemReadResult<T>(items, warnings);
     }
 
     private static CalendarItem? CreateCalendarItem(

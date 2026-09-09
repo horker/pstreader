@@ -40,19 +40,22 @@ internal static class CliApplication
                     options.Format,
                     options.OutputTimeZone,
                     options.IncludeBody);
-                if (result.Warnings.Count > 0)
-                {
-                    error.WriteLine($"警告: {result.Warnings.Count} 件の項目またはフォルダーを読み飛ばしました。");
-                    foreach (var warning in result.Warnings.Take(10))
-                    {
-                        error.WriteLine($"警告: {warning}");
-                    }
-
-                    if (result.Warnings.Count > 10)
-                    {
-                        error.WriteLine($"警告: 残り {result.Warnings.Count - 10} 件は省略しました。");
-                    }
-                }
+                WriteWarnings(error, result.Warnings);
+            }
+            else if (options.Command is ReaderCommand.Tasks)
+            {
+                var result = service.ReadTasks(options.FromUtc, options.ToUtc, options.DateField!, options.IncludeBody);
+                OutputSerializer.WriteTasks(writerScope.Writer, result.Items, options.Format,
+                    options.OutputTimeZone, options.IncludeBody);
+                WriteWarnings(error, result.Warnings);
+            }
+            else if (options.Command is ReaderCommand.Mail)
+            {
+                var result = service.ReadMail(options.FromUtc, options.ToUtc, options.DateField!,
+                    options.IncludeBody, options.FlaggedOnly);
+                OutputSerializer.WriteMail(writerScope.Writer, result.Items, options.Format,
+                    options.OutputTimeZone, options.IncludeBody);
+                WriteWarnings(error, result.Warnings);
             }
             else
             {
@@ -87,6 +90,23 @@ internal static class CliApplication
         }
     }
 
+    private static void WriteWarnings(TextWriter error, IReadOnlyList<string> warnings)
+    {
+        if (warnings.Count > 0)
+        {
+            error.WriteLine($"警告: {warnings.Count} 件の項目またはフォルダーを読み飛ばしました。");
+            foreach (var warning in warnings.Take(10))
+            {
+                error.WriteLine($"警告: {warning}");
+            }
+
+            if (warnings.Count > 10)
+            {
+                error.WriteLine($"警告: 残り {warnings.Count - 10} 件は省略しました。");
+            }
+        }
+    }
+
     private static void WriteHelp(TextWriter writer)
     {
         writer.WriteLine("pstreader - Outlook/Office 非依存の PST/OST 読み取り CLI");
@@ -98,6 +118,15 @@ internal static class CliApplication
         writer.WriteLine("                     [--format json|csv] [--output <file>]");
         writer.WriteLine("                     [--output-time-zone <local|utc|time-zone-id>]");
         writer.WriteLine("                     [--include-body]");
+        writer.WriteLine();
+        writer.WriteLine("  pstreader tasks <file> [--date-field start|due|completed]");
+        writer.WriteLine("  pstreader mail <file> [--date-field received|sent] [--flagged-only]");
+        writer.WriteLine("  tasks/mail 共通: [--from <date>] [--to <date>] [--format json|csv]");
+        writer.WriteLine("                   [--output <file>] [--output-time-zone <local|utc|time-zone-id>]");
+        writer.WriteLine("                   [--include-body]");
+        writer.WriteLine("日時基準の既定値は tasks: due、mail: received です。別の日時への代替は行いません。");
+        writer.WriteLine("tasks/mail の期間は指定基準日時について from を含み to を含みません。");
+        writer.WriteLine("--flagged-only は未完了のフラグ付きメールだけを取得します。");
         writer.WriteLine();
         writer.WriteLine("コマンドを省略した場合は calendar として扱います。");
         writer.WriteLine("入力日時にタイムゾーンがない場合はローカルタイムとして解釈します。");

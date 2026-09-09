@@ -5,6 +5,8 @@ internal enum ReaderCommand
     Info,
     Folders,
     Calendar,
+    Tasks,
+    Mail,
 }
 
 internal enum OutputFormat
@@ -21,7 +23,9 @@ internal sealed record CliOptions(
     DateTimeOffset? FromUtc,
     DateTimeOffset? ToUtc,
     TimeZoneInfo OutputTimeZone,
-    bool IncludeBody);
+    bool IncludeBody,
+    string? DateField = null,
+    bool FlaggedOnly = false);
 
 internal sealed record CliParseResult(CliOptions? Options, string? Error, bool ShowHelp)
 {

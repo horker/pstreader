@@ -2,7 +2,7 @@
 
 `pstreader` は、Microsoft Outlook、Office、MAPI、および外部ランタイムを必要とせずに
 PST/OST を読み取る Windows 用 CLI です。一般ユーザー権限で動作し、ストア情報、
-フォルダー構造、およびカレンダー項目を JSON または CSV で出力します。
+フォルダー構造、カレンダー、タスク、およびメールを JSON または CSV で出力します。
 
 解析処理は C# で実装され、XstReader 系の `XstReader.Base` をソースとして同梱しています。
 配布用ビルドは .NET ランタイムを含む self-contained の単一 EXE です。
@@ -128,6 +128,74 @@ PST/OST の Name-to-ID Map を解決してから、主に次の named properties
 
 現時点では繰り返し予定を個々の発生に展開せず、PST/OST に保存されたマスター項目を
 1 件として出力します。
+
+## タスクとメールを取得する
+
+```powershell
+# 期限が指定期間に含まれるタスク
+.\pstreader.exe tasks "C:\Data\mailbox.ost" --date-field due `
+  --from "2026-01-01" --to "2026-02-01" --output tasks.json
+
+# 送信日時でメールを絞り込み、本文付きCSVを出力
+.\pstreader.exe mail "C:\Data\mailbox.ost" --date-field sent `
+  --from "2026-01-01" --to "2026-02-01" --include-body `
+  --format csv --output mail.csv
+
+# 未完了のフラグ付きメールのみ取得
+.\pstreader.exe mail "C:\Data\mailbox.ost" --flagged-only --include-body
+```
+
+両コマンドで `--format`、`--output`、`--from`、`--to`、
+`--output-time-zone`（別名 `--time-zone`）、`--include-body` を使用できます。
+
+| コマンド | --date-field | 既定値 |
+|---|---|---|
+| tasks | start / due / completed | due |
+| mail | received / sent | received |
+
+期間は選択した単一日時について `from <= 日時 < to` と判定します。
+選択した日時がない場合、別の日時への代替は行わず、期間指定時だけ除外します。
+期間指定がなければ日時のない項目も取得します。選択日時の昇順、次に件名の順で
+出力し、日時のない項目は末尾に配置します。日時の入力解釈と出力タイムゾーンは
+カレンダーと共通です。
+
+全フォルダーから、タスクは `IPM.Task`、メールは `IPM.Note` と、それぞれの
+ドット区切りの派生クラスを取得します。フラグ付きメールをタスクに含めません。
+添付ファイルの保存と繰り返しタスクの個別展開は行いません。
+
+### 出力項目
+
+タスクのCSV列（JSONでも同名のプロパティを持つ配列）：
+
+```text
+folderPath,subject,start,due,completed,status,percentComplete,isComplete,messageClass
+```
+
+タスクの日時・状態・進捗・完了フラグは `PSETID_Task` の名前付きプロパティから取得します。
+`status` は保存された整数（0: 未開始、1: 進行中、2: 完了、3: 待機、4: 延期）、
+`percentComplete` は保存された比率を100倍した百分率です。
+`isComplete` は保存された完了フラグであり、状態や進捗から推測しません。
+
+メールのCSV列：
+
+```text
+folderPath,subject,senderName,senderAddress,to,cc,bcc,received,sent,isRead,hasAttachments,flagStatus,messageClass
+```
+
+差出人・宛先は保存されたSMTPアドレスを優先し、なければ保存されたアドレスを使用します。
+宛先は `表示名 <アドレス>` を `; ` で連結した文字列です。片方しかない場合はその値を
+使用し、宛先テーブルに値がない場合は保存された表示宛先を使用します。
+`received` は受信日時、`sent` は送信日時です。
+
+`flagStatus` は `PidTagFlagStatus`（0x1090）から取得し、未設定・0は `none`、
+1は `complete`、2は `flagged`、その他は `unknown` とします。
+`--flagged-only` は `mail` 専用で、`flagged` のメールだけを取得し、完了済みは除外します。
+期間指定との併用時は両方の条件を満たす必要があります。
+このオプションを省略した場合も `flagStatus` を出力します。
+
+欠損した日時・状態・進捗・真偽値はJSONで `null`、CSVで空欄です。
+本文は `--include-body` 指定時のみ末尾に `body,bodyFormat` を追加します。
+本文形式と抽出方法はカレンダーと共通です。
 
 ## ファイルが使用中の場合
 
