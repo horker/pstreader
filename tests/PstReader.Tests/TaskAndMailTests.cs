@@ -17,7 +17,7 @@ public sealed class TaskAndMailTests
     };
     private static Message Message(string messageClass)
     {
-        var message = new Message { Subject = "件名", Body = "本文" };
+        var message = new Message { Subject = "Subject", Body = "Body" };
         message.Properties.Add(Prop(0x001A, messageClass));
         return message;
     }
@@ -87,7 +87,7 @@ public sealed class TaskAndMailTests
         Assert.Equal(25d, item.PercentComplete);
         Assert.Equal(1, item.Status);
         Assert.False(item.IsComplete);
-        Assert.Equal("本文", item.Body);
+        Assert.Equal("Body", item.Body);
         Assert.Equal(Date, XstStoreService.TaskDate(item, "start"));
         Assert.Equal(Date.AddDays(1), XstStoreService.TaskDate(item, "due"));
         Assert.Equal(Date.AddDays(2), XstStoreService.TaskDate(item, "completed"));
@@ -118,7 +118,7 @@ public sealed class TaskAndMailTests
     public void MailAddressesDatesAndFlags()
     {
         var message = Message("IPM.Note");
-        message.Properties.AddRange([Prop(0x0C1A, "送信者"), Prop(0x0C1F, "/EX/sender"),
+        message.Properties.AddRange([Prop(0x0C1A, "Sender"), Prop(0x0C1F, "/EX/sender"),
             Prop(0x5D01, "sender@example.com"), Prop(0x0039, Date), Prop(0x0E07, 0x11)]);
         foreach (var type in new[] { RecipientType.To, RecipientType.Cc, RecipientType.Bcc })
         {
@@ -128,7 +128,7 @@ public sealed class TaskAndMailTests
         }
         var item = XstStoreService.CreateMailItem(new Folder(), message)!;
         Assert.Equal("sender@example.com", item.SenderAddress);
-        Assert.Equal("送信者", item.SenderName);
+        Assert.Equal("Sender", item.SenderName);
         Assert.Equal("To <user@example.com>", item.To);
         Assert.Equal("Cc <user@example.com>", item.Cc);
         Assert.Equal("Bcc <user@example.com>", item.Bcc);
@@ -139,10 +139,10 @@ public sealed class TaskAndMailTests
         Assert.False(XstStoreService.InPeriod(item.Received, Date, null));
         message.Properties.RemoveAll(p => (ushort)p.Tag is 0x5D01 or 0x0E07);
         message.Recipients.Clear();
-        message.Properties.Add(Prop(0x0E04, "表示宛先"));
+        message.Properties.Add(Prop(0x0E04, "Display recipient"));
         item = XstStoreService.CreateMailItem(new Folder(), message)!;
         Assert.Equal("/EX/sender", item.SenderAddress);
-        Assert.Equal("表示宛先", item.To);
+        Assert.Equal("Display recipient", item.To);
         Assert.Null(item.IsRead);
         Assert.Null(item.HasAttachments);
     }
@@ -168,8 +168,8 @@ public sealed class TaskAndMailTests
     public void OutputSchemaBodyAndTimeZone(bool body)
     {
         var zone = TimeZoneInfo.CreateCustomTimeZone("Test", TimeSpan.FromHours(9), "Test", "Test");
-        var task = new TaskItem("Root", "件名", Date, null, null, null, null, null, "IPM.Task", "本文,\"引用\"\n次行", "text");
-        var mail = new MailItem("Root", "件名", "", "", "", "", "", Date, null, null, null, "none", "IPM.Note",
+        var task = new TaskItem("Root", "Subject", Date, null, null, null, null, null, "IPM.Task", "Body,\"Quote\"\nNext line", "text");
+        var mail = new MailItem("Root", "Subject", "", "", "", "", "", Date, null, null, null, "none", "IPM.Note",
             task.Body, "text");
         foreach (var isTask in new[] { true, false })
         {
@@ -192,10 +192,10 @@ public sealed class TaskAndMailTests
             if (body) Assert.Equal(task.Body, outputBody.GetString());
             Assert.Equal(TimeSpan.FromHours(9), item.GetProperty(isTask ? "start" : "received").GetDateTimeOffset().Offset);
             Assert.Equal(JsonValueKind.Null, item.GetProperty(isTask ? "due" : "sent").ValueKind);
-            Assert.Contains("件名", json.ToString());
+            Assert.Contains("Subject", json.ToString());
             Assert.Contains("+09:00", csv.ToString());
             Assert.Equal(body, csv.ToString().Contains("\"body\""));
-            if (body) Assert.Contains("本文,\"\"引用\"\"\n次行", csv.ToString());
+            if (body) Assert.Contains("Body,\"\"Quote\"\"\nNext line", csv.ToString());
         }
     }
 }

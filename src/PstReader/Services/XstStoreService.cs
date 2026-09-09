@@ -67,7 +67,7 @@ internal sealed partial class XstStoreService(string inputPath, PffHeader header
             }
             catch (Exception ex) when (IsRecoverableItemError(ex))
             {
-                warnings.Add($"{NormalizePath(entry.Folder.Path)}: フォルダーを読み取れません: {ex.Message}");
+                warnings.Add($"{NormalizePath(entry.Folder.Path)}: Cannot read folder: {ex.Message}");
                 continue;
             }
 
@@ -85,8 +85,8 @@ internal sealed partial class XstStoreService(string inputPath, PffHeader header
                 catch (Exception ex) when (IsRecoverableItemError(ex))
                 {
                     warnings.Add(
-                        $"{NormalizePath(entry.Folder.Path)} / {message.Subject ?? "<件名なし>"}: " +
-                        $"項目を読み取れません: {ex.Message}");
+                        $"{NormalizePath(entry.Folder.Path)} / {message.Subject ?? "<no subject>"}: " +
+                        $"Cannot read item: {ex.Message}");
                 }
             }
         }
@@ -118,7 +118,7 @@ internal sealed partial class XstStoreService(string inputPath, PffHeader header
 
         if (start is null || end is null || end < start)
         {
-            throw new InvalidDataException("予定の開始または終了日時が不正です。");
+            throw new InvalidDataException("Invalid appointment start or end date.");
         }
 
         var clipStart = GetNamedDate(message.Properties, AppointmentPropertySet, 0x8235) ?? start;

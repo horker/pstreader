@@ -24,7 +24,7 @@ internal static class CliParser
 
         if (index >= args.Length || args[index].StartsWith('-'))
         {
-            return Failure("入力ファイルを指定してください。");
+            return Failure("Specify an input file.");
         }
 
         var inputPath = args[index++];
@@ -55,7 +55,7 @@ internal static class CliParser
 
                     if (!Enum.TryParse<OutputFormat>(formatValue, true, out format))
                     {
-                        return Failure("--format には json または csv を指定してください。");
+                        return Failure("Specify json or csv for --format.");
                     }
 
                     break;
@@ -107,18 +107,18 @@ internal static class CliParser
                     includeBody = true;
                     break;
                 default:
-                    return Failure($"不明なオプションです: {option}");
+                    return Failure($"Unknown option: {option}");
             }
         }
 
         if (command is not (ReaderCommand.Calendar or ReaderCommand.Tasks or ReaderCommand.Mail) &&
             (fromUtc is not null || toUtc is not null || outputTimeZoneSpecified || includeBody))
         {
-            return Failure("--from、--to、--output-time-zone、--include-body は calendar、tasks、mail コマンドでのみ使用できます。");
+            return Failure("--from, --to, --output-time-zone, and --include-body are only available for calendar, tasks, and mail.");
         }
 
         if (flaggedOnly && command is not ReaderCommand.Mail)
-            return Failure("--flagged-only は mail コマンドでのみ使用できます。");
+            return Failure("--flagged-only is only available for the mail command.");
 
         if (dateField is not null && !(command switch
             {
@@ -126,7 +126,7 @@ internal static class CliParser
                 ReaderCommand.Mail => dateField is "received" or "sent",
                 _ => false,
             }))
-            return Failure("--date-field は tasks では start|due|completed、mail では received|sent を指定してください。");
+            return Failure("For --date-field, specify start|due|completed for tasks or received|sent for mail.");
 
         dateField ??= command switch
         {
@@ -137,7 +137,7 @@ internal static class CliParser
 
         if (fromUtc is not null && toUtc is not null && fromUtc >= toUtc)
         {
-            return Failure("--from は --to より前である必要があります。");
+            return Failure("--from must be earlier than --to.");
         }
 
         return new CliParseResult(
@@ -166,7 +166,7 @@ internal static class CliParser
         if (index >= args.Length || args[index].StartsWith('-'))
         {
             value = null;
-            error = $"{option} の値を指定してください。";
+            error = $"Specify a value for {option}.";
             return false;
         }
 
@@ -197,7 +197,7 @@ internal static class CliParser
                     out var parsed))
             {
                 value = null;
-                error = $"{option} の日時を解釈できません: {text}";
+                error = $"Cannot parse the date for {option}: {text}";
                 return false;
             }
 
@@ -213,7 +213,7 @@ internal static class CliParser
                 out var parsedLocal))
         {
             value = null;
-            error = $"{option} の日時を解釈できません: {text}";
+            error = $"Cannot parse the date for {option}: {text}";
             return false;
         }
 
@@ -221,14 +221,14 @@ internal static class CliParser
         if (TimeZoneInfo.Local.IsInvalidTime(parsedLocal))
         {
             value = null;
-            error = $"{option} はローカルタイムゾーンに存在しない日時です。UTC オフセットを指定してください: {text}";
+            error = $"{option} is an invalid time in the local time zone. Specify a UTC offset: {text}";
             return false;
         }
 
         if (TimeZoneInfo.Local.IsAmbiguousTime(parsedLocal))
         {
             value = null;
-            error = $"{option} はローカルタイムゾーンで曖昧な日時です。UTC オフセットを指定してください: {text}";
+            error = $"{option} is ambiguous in the local time zone. Specify a UTC offset: {text}";
             return false;
         }
 
@@ -284,7 +284,7 @@ internal static class CliParser
         catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
         {
             timeZone = TimeZoneInfo.Local;
-            error = $"出力タイムゾーンが見つからないか、定義が不正です: {value}";
+            error = $"Output time zone not found or its definition is invalid: {value}";
             return false;
         }
     }

@@ -46,22 +46,21 @@ public sealed class CalendarAndOutputTests
     {
         using var writer = new StringWriter();
         var item = new CalendarItem(
-            "ルート/予定表",
-            "振替休日（元旦）",
+            "Root/Calendar",
+            "Observed holiday (New Year’s Day)",
             DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
             DateTimeOffset.Parse("2026-01-02T00:00:00Z"),
-            "日本",
+            "Japan",
             true,
             "IPM.Appointment");
 
         OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json, TimeZoneInfo.Local);
 
         var json = writer.ToString();
-        Assert.Contains("ルート/予定表", json);
-        Assert.Contains("振替休日（元旦）", json);
-        Assert.Contains("日本", json);
-        Assert.DoesNotContain("\\u30EB", json, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("\\u65E5", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Root/Calendar", json);
+        Assert.Contains("Observed holiday (New Year’s Day)", json);
+        Assert.Contains("Japan", json);
+        Assert.DoesNotContain("\\u2019", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -119,7 +118,7 @@ public sealed class CalendarAndOutputTests
     public void JsonWriterOmitsBodyByDefault()
     {
         using var writer = new StringWriter();
-        var item = CreateItem("非表示の本文", "text");
+        var item = CreateItem("Hidden body", "text");
 
         OutputSerializer.WriteCalendar(writer, [item], OutputFormat.Json, TimeZoneInfo.Utc);
 
@@ -133,7 +132,7 @@ public sealed class CalendarAndOutputTests
     public void JsonWriterIncludesReadableBodyWhenRequested()
     {
         using var writer = new StringWriter();
-        var item = CreateItem("日本語の予定本文", "text");
+        var item = CreateItem("Calendar body: café meeting", "text");
 
         OutputSerializer.WriteCalendar(
             writer,
@@ -145,17 +144,17 @@ public sealed class CalendarAndOutputTests
         var json = writer.ToString();
         using var document = JsonDocument.Parse(json);
         var outputItem = document.RootElement[0];
-        Assert.Equal("日本語の予定本文", outputItem.GetProperty("body").GetString());
+        Assert.Equal("Calendar body: café meeting", outputItem.GetProperty("body").GetString());
         Assert.Equal("text", outputItem.GetProperty("bodyFormat").GetString());
-        Assert.Contains("日本語の予定本文", json);
-        Assert.DoesNotContain("\\u65E5", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Calendar body: café meeting", json);
+        Assert.DoesNotContain("\\u00E9", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void CsvWriterIncludesBodyColumnsWhenRequested()
     {
         using var writer = new StringWriter();
-        var item = CreateItem("1行目\r\n\"引用\"", "text");
+        var item = CreateItem("Line 1\r\n\"Quote\"", "text");
 
         OutputSerializer.WriteCalendar(
             writer,
@@ -168,26 +167,26 @@ public sealed class CalendarAndOutputTests
         Assert.StartsWith(
             "\"folderPath\",\"subject\",\"start\",\"end\",\"location\",\"isAllDay\",\"messageClass\",\"body\",\"bodyFormat\"",
             csv);
-        Assert.Contains("\"1行目\r\n\"\"引用\"\"\"", csv);
+        Assert.Contains("\"Line 1\r\n\"\"Quote\"\"\"", csv);
     }
 
     [Fact]
     public void ExtractsPlainAndHtmlBodiesWithTheirFormats()
     {
-        var plain = XstStoreService.ExtractBody(new Message { Body = "プレーン本文" });
-        var html = XstStoreService.ExtractBody(new Message { BodyHtml = "<p>HTML本文</p>" });
+        var plain = XstStoreService.ExtractBody(new Message { Body = "Plain text body" });
+        var html = XstStoreService.ExtractBody(new Message { BodyHtml = "<p>HTML body</p>" });
 
-        Assert.Equal(("プレーン本文", "text"), plain);
-        Assert.Equal(("<p>HTML本文</p>", "html"), html);
+        Assert.Equal(("Plain text body", "text"), plain);
+        Assert.Equal(("<p>HTML body</p>", "html"), html);
     }
 
     [Fact]
     public void HtmlBodyCanRemainReadableUnicode()
     {
-        var message = new Message { Body = "日本語" };
+        var message = new Message { Body = "Café" };
 
-        Assert.Equal("日本語", message.GetBodyAsHtmlString(escapeUnicode: false));
-        Assert.Equal("&#x65E5;&#x672C;&#x8A9E;", message.GetBodyAsHtmlString());
+        Assert.Equal("Café", message.GetBodyAsHtmlString(escapeUnicode: false));
+        Assert.Equal("Caf&#x00E9;", message.GetBodyAsHtmlString());
     }
 
     private static CalendarItem CreateItem(string? body, string? bodyFormat) => new(

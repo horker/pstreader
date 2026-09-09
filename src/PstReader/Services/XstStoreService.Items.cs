@@ -32,14 +32,14 @@ internal sealed partial class XstStoreService
         "start" => item.Start,
         "due" => item.Due,
         "completed" => item.Completed,
-        _ => throw new ArgumentException("不正なタスク日時基準です。", nameof(field)),
+        _ => throw new ArgumentException("Invalid task date field.", nameof(field)),
     };
 
     internal static DateTimeOffset? MailDate(MailItem item, string field) => field switch
     {
         "received" => item.Received,
         "sent" => item.Sent,
-        _ => throw new ArgumentException("不正なメール日時基準です。", nameof(field)),
+        _ => throw new ArgumentException("Invalid mail date field.", nameof(field)),
     };
 
     internal static IReadOnlyList<T> FilterAndSort<T>(IEnumerable<T> items,

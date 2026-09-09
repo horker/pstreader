@@ -10,7 +10,7 @@ $resolvedPublishDirectory = [IO.Path]::GetFullPath($publishDirectory)
 if (!$resolvedPublishDirectory.StartsWith(
         $resolvedProjectRoot + [IO.Path]::DirectorySeparatorChar,
         [StringComparison]::OrdinalIgnoreCase)) {
-    throw "発行先がプロジェクト外です: $resolvedPublishDirectory"
+    throw "The publish destination is outside the project: $resolvedPublishDirectory"
 }
 
 if (Test-Path -LiteralPath $resolvedPublishDirectory) {
@@ -32,7 +32,7 @@ $executable = $publishedFiles | Where-Object Name -EQ 'pstreader.exe'
 $unexpectedFiles = $publishedFiles | Where-Object Name -NE 'pstreader.exe'
 
 if ($null -eq $executable -or $unexpectedFiles.Count -ne 0) {
-    throw "単一 EXE の発行結果が不正です: $publishDirectory"
+    throw "The single-EXE publish output is invalid: $publishDirectory"
 }
 
 Write-Output $executable.FullName

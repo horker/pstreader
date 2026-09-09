@@ -1,1 +1,1 @@
-作業が完了したら、自主的にcommitおよびpushしてください。
+Commit and push changes proactively when the work is complete.

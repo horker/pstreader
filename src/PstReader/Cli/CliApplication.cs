@@ -17,8 +17,8 @@ internal static class CliApplication
 
         if (!parsed.IsSuccess)
         {
-            error.WriteLine($"エラー: {parsed.Error}");
-            error.WriteLine("使用方法は pstreader --help で確認できます。");
+            error.WriteLine($"Error: {parsed.Error}");
+            error.WriteLine("Run pstreader --help for usage information.");
             return 2;
         }
 
@@ -75,17 +75,17 @@ internal static class CliApplication
         }
         catch (FileNotFoundException)
         {
-            error.WriteLine($"エラー: 入力ファイルが見つかりません: {options.InputPath}");
+            error.WriteLine($"Error: Input file not found: {options.InputPath}");
             return 3;
         }
         catch (PffFormatException ex)
         {
-            error.WriteLine($"エラー: {ex.Message}");
+            error.WriteLine($"Error: {ex.Message}");
             return 3;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XstReader.XstException or NotSupportedException)
         {
-            error.WriteLine($"エラー: PST/OST を読み取れませんでした: {ex.Message}");
+            error.WriteLine($"Error: Failed to read PST/OST: {ex.Message}");
             return 3;
         }
     }
@@ -94,24 +94,24 @@ internal static class CliApplication
     {
         if (warnings.Count > 0)
         {
-            error.WriteLine($"警告: {warnings.Count} 件の項目またはフォルダーを読み飛ばしました。");
+            error.WriteLine($"Warning: Skipped {warnings.Count} items or folders.");
             foreach (var warning in warnings.Take(10))
             {
-                error.WriteLine($"警告: {warning}");
+                error.WriteLine($"Warning: {warning}");
             }
 
             if (warnings.Count > 10)
             {
-                error.WriteLine($"警告: 残り {warnings.Count - 10} 件は省略しました。");
+                error.WriteLine($"Warning: Omitted {warnings.Count - 10} additional warnings.");
             }
         }
     }
 
     private static void WriteHelp(TextWriter writer)
     {
-        writer.WriteLine("pstreader - Outlook/Office 非依存の PST/OST 読み取り CLI");
+        writer.WriteLine("pstreader - PST/OST reader CLI without Outlook or Office dependencies");
         writer.WriteLine();
-        writer.WriteLine("使用方法:");
+        writer.WriteLine("Usage:");
         writer.WriteLine("  pstreader info <file> [--format json|csv] [--output <file>]");
         writer.WriteLine("  pstreader folders <file> [--format json|csv] [--output <file>]");
         writer.WriteLine("  pstreader calendar <file> [--from <date>] [--to <date>]");
@@ -121,17 +121,17 @@ internal static class CliApplication
         writer.WriteLine();
         writer.WriteLine("  pstreader tasks <file> [--date-field start|due|completed]");
         writer.WriteLine("  pstreader mail <file> [--date-field received|sent] [--flagged-only]");
-        writer.WriteLine("  tasks/mail 共通: [--from <date>] [--to <date>] [--format json|csv]");
+        writer.WriteLine("  Shared tasks/mail options: [--from <date>] [--to <date>] [--format json|csv]");
         writer.WriteLine("                   [--output <file>] [--output-time-zone <local|utc|time-zone-id>]");
         writer.WriteLine("                   [--include-body]");
-        writer.WriteLine("日時基準の既定値は tasks: due、mail: received です。別の日時への代替は行いません。");
-        writer.WriteLine("tasks/mail の期間は指定基準日時について from を含み to を含みません。");
-        writer.WriteLine("--flagged-only は未完了のフラグ付きメールだけを取得します。");
+        writer.WriteLine("Default date fields: tasks: due, mail: received. Missing dates have no fallback.");
+        writer.WriteLine("For tasks/mail, the selected date must be at or after from and before to.");
+        writer.WriteLine("--flagged-only retrieves only flagged mail that has not been completed.");
         writer.WriteLine();
-        writer.WriteLine("コマンドを省略した場合は calendar として扱います。");
-        writer.WriteLine("入力日時にタイムゾーンがない場合はローカルタイムとして解釈します。");
-        writer.WriteLine("出力時刻は既定でローカルタイムです。--time-zone は短縮別名です。");
-        writer.WriteLine("--include-body を指定すると、本文と本文形式を出力します。");
+        writer.WriteLine("The command defaults to calendar when omitted.");
+        writer.WriteLine("Input dates without a time zone are interpreted as local time.");
+        writer.WriteLine("Output times default to local time. --time-zone is an alias for --output-time-zone.");
+        writer.WriteLine("--include-body adds the body and its format to the output.");
     }
 
     private sealed class WriterScope(TextWriter writer, TextWriter standardOutput) : IDisposable

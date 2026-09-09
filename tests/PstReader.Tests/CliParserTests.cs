@@ -90,7 +90,7 @@ public sealed class CliParserTests
         ]);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("タイムゾーン", result.Error);
+        Assert.Contains("time zone", result.Error);
     }
 
     [Fact]

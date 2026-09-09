@@ -1,24 +1,26 @@
 # pstreader
 
-`pstreader` は、Microsoft Outlook、Office、MAPI、および外部ランタイムを必要とせずに
-PST/OST を読み取る Windows 用 CLI です。一般ユーザー権限で動作し、ストア情報、
-フォルダー構造、カレンダー、タスク、およびメールを JSON または CSV で出力します。
+`pstreader` is a Windows CLI that reads PST/OST files without Microsoft Outlook,
+Office, MAPI, or an external runtime. It runs with standard user privileges and
+exports store information, folder structures, calendar items, tasks, and mail as
+JSON or CSV.
 
-解析処理は C# で実装され、XstReader 系の `XstReader.Base` をソースとして同梱しています。
-配布用ビルドは .NET ランタイムを含む self-contained の単一 EXE です。
+The parser is implemented in C# and includes the source for the XstReader-derived
+`XstReader.Base` library. The distribution build is a self-contained, single EXE
+that includes the .NET runtime.
 
-## 主な機能
+## Features
 
-- ファイル拡張子ではなく `!BDN` ヘッダ、content type、および version で形式を判定します。
-- PST の ANSI 形式（version 14/15）と Unicode 形式（version 23）を扱います。
-- Outlook 2013 以降の 4 KiB OST（version 36、`wVer=0x24`）を扱います。
-- 内部ヘッダが OST である `.nst` 等も、拡張子に関係なく読み取ります。
-- ストア情報および全フォルダーを列挙します。
-- カレンダー項目の件名、開始、終了、場所、終日フラグ、Message Class を抽出します。
-- 必要に応じて、プレーンテキスト、HTML、または展開済み RTF の本文を抽出します。
-- 期間フィルターと JSON/CSV 出力に対応します。
+- Detects the format using the `!BDN` header, content type, and version rather than the file extension.
+- Supports ANSI PST (versions 14/15) and Unicode PST (version 23).
+- Supports Outlook 2013 and later 4 KiB OST (version 36, `wVer=0x24`).
+- Reads files such as `.nst` with an OST internal header, regardless of their extension.
+- Lists store information and all folders.
+- Extracts calendar subjects, start and end times, locations, all-day flags, and message classes.
+- Optionally extracts plain text, HTML, or decompressed RTF bodies.
+- Supports date range filtering and JSON/CSV output.
 
-## 使用方法
+## Usage
 
 ```text
 pstreader info <file> [--format json|csv] [--output <file>]
@@ -29,25 +31,26 @@ pstreader calendar <file> [--from <date>] [--to <date>]
                    [--include-body]
 ```
 
-コマンドを省略した場合は `calendar` として扱います。`--output` を省略すると標準出力へ
-書き込みます。データ以外の警告とエラーは標準エラーへ書き込みます。
+The command defaults to `calendar` when omitted. If `--output` is omitted, data
+is written to standard output. Warnings and errors are written to standard error.
 
-### ストア情報を表示する
+### Display store information
 
 ```powershell
 .\pstreader.exe info "C:\Data\archive.pst" --format json
 ```
 
-出力には、ヘッダから判定した PST/OST、version、レイアウト、ページサイズ、ファイルサイズ、
-ルートフォルダー、フォルダー数、および各フォルダーが宣言する項目数の合計が含まれます。
+The output includes the PST/OST type detected from the header, version, layout,
+page size, file size, root folder, folder count, and the sum of the item counts
+declared by each folder.
 
-### フォルダーを CSV で列挙する
+### List folders as CSV
 
 ```powershell
 .\pstreader.exe folders "C:\Data\mailbox.ost" --format csv --output folders.csv
 ```
 
-### 期間を指定して予定を JSON へ出力する
+### Export calendar items within a date range as JSON
 
 ```powershell
 .\pstreader.exe calendar "C:\Data\mailbox.ost" `
@@ -57,13 +60,14 @@ pstreader calendar <file> [--from <date>] [--to <date>]
   --output calendar.json
 ```
 
-期間は内部で UTC に正規化し、`--from` を含み `--to` を含まない半開区間として扱います。
-期間に少しでも重なる予定を出力します。入力日時に UTC オフセットや `Z` がない場合は、
-実行環境のローカルタイムゾーンとして解釈します。夏時間の切り替えにより存在しない日時、
-または二通りに解釈できる日時には、明示的な UTC オフセットを指定してください。
+The range is normalized to UTC internally and treated as a half-open interval
+that includes `--from` and excludes `--to`. Any appointment overlapping the range
+is exported. Input dates without a UTC offset or `Z` are interpreted in the local
+time zone. Specify an explicit UTC offset for times that do not exist or are
+ambiguous because of daylight saving time transitions.
 
-開始・終了日時は既定で実行環境のローカルタイムゾーンに変換して出力します。UTC または
-別のタイムゾーンで出力する場合は、次のように指定します。
+Start and end times are converted to the local time zone by default. To output
+UTC or another time zone, use:
 
 ```powershell
 # UTC
@@ -71,27 +75,27 @@ pstreader calendar <file> [--from <date>] [--to <date>]
   --from "2026-01-01" --to "2026-02-01" `
   --output-time-zone utc
 
-# Windows の TimeZoneInfo ID
+# Windows TimeZoneInfo ID
 .\pstreader.exe calendar "C:\Data\mailbox.ost" `
   --output-time-zone "Tokyo Standard Time"
 ```
 
-`local` はローカルタイムゾーンを明示します。`--time-zone` は
-`--output-time-zone` の短縮別名です。任意指定には、実行環境で
-`TimeZoneInfo.FindSystemTimeZoneById` が解決できるタイムゾーン ID を使用します。
+`local` explicitly selects the local time zone. `--time-zone` is a shorter alias
+for `--output-time-zone`. For other zones, use an ID that
+`TimeZoneInfo.FindSystemTimeZoneById` can resolve in the current environment.
 
-CSV の列は次のとおりです。
+The CSV columns are:
 
 ```text
 folderPath,subject,start,end,location,isAllDay,messageClass
 ```
 
-JSON では同名の camelCase プロパティを持つ配列を出力します。
+JSON output is an array with camelCase properties of the same names.
 
-### 予定の本文を出力する
+### Export calendar bodies
 
-既定では従来と同じ出力項目を維持し、本文を出力しません。本文が必要な場合は
-`--include-body` を指定します。
+By default, the existing output fields are preserved and bodies are omitted.
+Specify `--include-body` to include them.
 
 ```powershell
 .\pstreader.exe calendar "C:\Data\mailbox.ost" `
@@ -100,136 +104,142 @@ JSON では同名の camelCase プロパティを持つ配列を出力します�
   --output calendar-with-body.json
 ```
 
-JSON には `body` と `bodyFormat` が追加されます。`bodyFormat` は `text`、`html`、
-`rtf` のいずれかです。対応する本文プロパティがない場合は、両方とも `null` になります。
-CSV では末尾に `body,bodyFormat` 列を追加します。改行、カンマ、二重引用符を含む本文は
-通常の CSV 規則に従って引用します。
+JSON adds `body` and `bodyFormat`. The format is `text`, `html`, or `rtf`. Both
+properties are `null` if no supported body property is available. CSV appends
+`body,bodyFormat` columns. Bodies containing newlines, commas, or double quotes
+are quoted according to standard CSV rules.
 
-HTML はHTML文字列として、RTFは圧縮解除後のRTF文字列として出力します。書式を除いた
-プレーンテキストへの変換は行いません。OSTに本文が同期されていない項目や、暗号化・保護
-された項目では本文を取得できない場合があります。
+HTML is output as an HTML string, and RTF as a decompressed RTF string. Formatting
+is not stripped to produce plain text. Bodies may be unavailable for items whose
+bodies have not been synchronized to the OST, or for encrypted or protected items.
 
-## カレンダー項目の判定
+## Calendar item detection
 
-`PidTagMessageClass` が `IPM.Appointment` で始まる項目を対象とします。カレンダー固有値は
-PST/OST の Name-to-ID Map を解決してから、主に次の named properties から取得します。
+Items whose `PidTagMessageClass` starts with `IPM.Appointment` are selected.
+Calendar-specific values are obtained primarily from the following named
+properties after resolving the PST/OST Name-to-ID Map.
 
-| 出力 | MAPI プロパティ |
+| Output | MAPI property |
 |---|---|
-| 開始 | `PidLidAppointmentStartWhole` (`0x820D`) |
-| 終了 | `PidLidAppointmentEndWhole` (`0x820E`) |
-| 場所 | `PidLidLocation` (`0x8208`) |
-| 終日 | `PidLidAppointmentSubType` (`0x8215`) |
-| 本文 | `PidTagBody` / `PidTagHtml` / `PidTagRtfCompressed` |
+| Start | `PidLidAppointmentStartWhole` (`0x820D`) |
+| End | `PidLidAppointmentEndWhole` (`0x820E`) |
+| Location | `PidLidLocation` (`0x8208`) |
+| All-day flag | `PidLidAppointmentSubType` (`0x8215`) |
+| Body | `PidTagBody` / `PidTagHtml` / `PidTagRtfCompressed` |
 
-開始・終了には `PidLidCommonStart` / `PidLidCommonEnd` と
-`PidTagStartDate` / `PidTagEndDate` のフォールバックも使用します。繰り返し予定の期間判定には
-利用可能な場合に `PidLidClipStart` / `PidLidClipEnd` を使用します。
+Start and end times also fall back to `PidLidCommonStart` / `PidLidCommonEnd` and
+`PidTagStartDate` / `PidTagEndDate`. For recurring appointments, range filtering
+uses `PidLidClipStart` / `PidLidClipEnd` when available.
 
-現時点では繰り返し予定を個々の発生に展開せず、PST/OST に保存されたマスター項目を
-1 件として出力します。
+Recurring appointments are not currently expanded into individual occurrences.
+Each master item stored in the PST/OST is exported as one item.
 
-## タスクとメールを取得する
+## Retrieve tasks and mail
 
 ```powershell
-# 期限が指定期間に含まれるタスク
+# Tasks whose due dates fall within the specified range
 .\pstreader.exe tasks "C:\Data\mailbox.ost" --date-field due `
   --from "2026-01-01" --to "2026-02-01" --output tasks.json
 
-# 送信日時でメールを絞り込み、本文付きCSVを出力
+# Filter mail by sent date and export CSV with bodies
 .\pstreader.exe mail "C:\Data\mailbox.ost" --date-field sent `
   --from "2026-01-01" --to "2026-02-01" --include-body `
   --format csv --output mail.csv
 
-# 未完了のフラグ付きメールのみ取得
+# Retrieve only flagged mail that has not been completed
 .\pstreader.exe mail "C:\Data\mailbox.ost" --flagged-only --include-body
 ```
 
-両コマンドで `--format`、`--output`、`--from`、`--to`、
-`--output-time-zone`（別名 `--time-zone`）、`--include-body` を使用できます。
+Both commands support `--format`, `--output`, `--from`, `--to`,
+`--output-time-zone` (alias `--time-zone`), and `--include-body`.
 
-| コマンド | --date-field | 既定値 |
+| Command | --date-field | Default |
 |---|---|---|
 | tasks | start / due / completed | due |
 | mail | received / sent | received |
 
-期間は選択した単一日時について `from <= 日時 < to` と判定します。
-選択した日時がない場合、別の日時への代替は行わず、期間指定時だけ除外します。
-期間指定がなければ日時のない項目も取得します。選択日時の昇順、次に件名の順で
-出力し、日時のない項目は末尾に配置します。日時の入力解釈と出力タイムゾーンは
-カレンダーと共通です。
+The range is evaluated against the selected single date as `from <= date < to`.
+If the selected date is missing, no other date is substituted; the item is
+excluded only when a range is specified. Without a range, items with missing
+dates are included. Items are sorted by the selected date in ascending order,
+then by subject, with missing dates placed last. Input date interpretation and
+output time zones follow the calendar rules.
 
-全フォルダーから、タスクは `IPM.Task`、メールは `IPM.Note` と、それぞれの
-ドット区切りの派生クラスを取得します。フラグ付きメールをタスクに含めません。
-添付ファイルの保存と繰り返しタスクの個別展開は行いません。
+All folders are scanned for `IPM.Task` tasks, `IPM.Note` mail, and their respective
+dot-separated derived classes. Flagged mail is not included as tasks. Attachments
+are not saved, and recurring tasks are not expanded into individual occurrences.
 
-### 出力項目
+### Output fields
 
-タスクのCSV列（JSONでも同名のプロパティを持つ配列）：
+Task CSV columns (JSON is an array with properties of the same names):
 
 ```text
 folderPath,subject,start,due,completed,status,percentComplete,isComplete,messageClass
 ```
 
-タスクの日時・状態・進捗・完了フラグは `PSETID_Task` の名前付きプロパティから取得します。
-`status` は保存された整数（0: 未開始、1: 進行中、2: 完了、3: 待機、4: 延期）、
-`percentComplete` は保存された比率を100倍した百分率です。
-`isComplete` は保存された完了フラグであり、状態や進捗から推測しません。
+Task dates, status, progress, and completion flags are read from named properties
+in `PSETID_Task`. `status` is the stored integer (0: not started, 1: in progress,
+2: complete, 3: waiting, 4: deferred). `percentComplete` is the stored fraction
+multiplied by 100. `isComplete` is the stored completion flag and is not inferred
+from status or progress.
 
-メールのCSV列：
+Mail CSV columns:
 
 ```text
 folderPath,subject,senderName,senderAddress,to,cc,bcc,received,sent,isRead,hasAttachments,flagStatus,messageClass
 ```
 
-差出人・宛先は保存されたSMTPアドレスを優先し、なければ保存されたアドレスを使用します。
-宛先は `表示名 <アドレス>` を `; ` で連結した文字列です。片方しかない場合はその値を
-使用し、宛先テーブルに値がない場合は保存された表示宛先を使用します。
-`received` は受信日時、`sent` は送信日時です。
+Sender and recipient addresses prefer stored SMTP addresses, falling back to
+stored addresses when SMTP addresses are unavailable. Recipients are formatted as
+`Display name <address>` and joined with `; `. If only a name or address is
+available, that value is used. If the recipient table has no values, stored
+display recipients are used. `received` is the received date, and `sent` is the
+sent date.
 
-`flagStatus` は `PidTagFlagStatus`（0x1090）から取得し、未設定・0は `none`、
-1は `complete`、2は `flagged`、その他は `unknown` とします。
-`--flagged-only` は `mail` 専用で、`flagged` のメールだけを取得し、完了済みは除外します。
-期間指定との併用時は両方の条件を満たす必要があります。
-このオプションを省略した場合も `flagStatus` を出力します。
+`flagStatus` is read from `PidTagFlagStatus` (0x1090): missing or 0 becomes `none`,
+1 becomes `complete`, 2 becomes `flagged`, and other values become `unknown`.
+`--flagged-only` is available only for `mail` and selects only `flagged` messages,
+excluding completed ones. When combined with a date range, both conditions must
+be satisfied. `flagStatus` is included even when this option is omitted.
 
-欠損した日時・状態・進捗・真偽値はJSONで `null`、CSVで空欄です。
-本文は `--include-body` 指定時のみ末尾に `body,bodyFormat` を追加します。
-本文形式と抽出方法はカレンダーと共通です。
+Missing dates, status, progress, and Boolean values are `null` in JSON and empty
+in CSV. `body,bodyFormat` are appended only when `--include-body` is specified.
+Body formats and extraction follow the calendar rules.
 
-## ファイルが使用中の場合
+## Files in use
 
-プログラム自体に管理者権限は不要です。ただし、Outlook 等がファイルの一部に排他的な
-バイト範囲ロックを設定している場合、共有読み取りを指定しても解析できません。その場合は
-Outlook と Teams を終了するか、読み取り可能なコピーを作成してから実行してください。
+The program itself does not require administrator privileges. However, if Outlook
+or another application holds exclusive byte-range locks on parts of the file,
+parsing may fail even with shared reading enabled. Close Outlook and Teams, or
+create a readable copy before running the command.
 
-## 終了コード
+## Exit codes
 
-| コード | 意味 |
+| Code | Meaning |
 |---:|---|
-| `0` | 成功 |
-| `2` | コマンドライン引数が不正 |
-| `3` | 入力ファイルまたは PST/OST の読み取りに失敗 |
+| `0` | Success |
+| `2` | Invalid command-line arguments |
+| `3` | Failed to read the input file or PST/OST |
 
-破損した個別項目またはフォルダーを読み飛ばせる場合、処理は成功として継続し、警告を
-標準エラーへ出力します。
+When individual corrupt items or folders can be skipped, processing continues
+successfully and warnings are written to standard error.
 
-## 開発
+## Development
 
-.NET 10 SDK を使用します。
+Use the .NET 10 SDK.
 
 ```powershell
 dotnet build .\PstReader.slnx -c Release
 dotnet test .\tests\PstReader.Tests\PstReader.Tests.csproj -c Release
 ```
 
-### 単一 EXE を発行する
+### Publish a single EXE
 
 ```powershell
 .\scripts\publish.ps1
 ```
 
-または、直接次のコマンドを実行します。
+Alternatively, run:
 
 ```powershell
 dotnet publish .\src\PstReader\PstReader.csproj `
@@ -239,11 +249,12 @@ dotnet publish .\src\PstReader\PstReader.csproj `
   -o .\artifacts\publish\win-x64
 ```
 
-出力は `artifacts\publish\win-x64\pstreader.exe` です。配布先には .NET、Outlook、
-Office、XstReader の別ファイルをインストールする必要はありません。
+The output is `artifacts\publish\win-x64\pstreader.exe`. Target machines do not
+need separate installations of .NET, Outlook, Office, or XstReader.
 
-## 第三者コード
+## Third-party code
 
-同梱する `XstReader.Base` の出典、固定した上流コミット、およびローカル互換修正は
-[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) に記載しています。ライセンス全文は
-[`licenses/XstReader-MS-PL.md`](licenses/XstReader-MS-PL.md) に含まれます。
+The source, pinned upstream commit, and local compatibility changes for the
+included `XstReader.Base` are documented in
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md). The full license is included in
+[`licenses/XstReader-MS-PL.md`](licenses/XstReader-MS-PL.md).

@@ -42,7 +42,7 @@ internal static class PffHeaderReader
 
         if (!header[..4].SequenceEqual(Magic))
         {
-            throw new PffFormatException("PST/OST の !BDN シグネチャがありません。");
+            throw new PffFormatException("The PST/OST !BDN signature is missing.");
         }
 
         var storeKind = BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]) switch
@@ -50,7 +50,7 @@ internal static class PffHeaderReader
             0x4D53 => PffStoreKind.Pst,
             0x4F53 => PffStoreKind.Ost,
             var contentType => throw new PffFormatException(
-                $"未対応の content type です: 0x{contentType:X4}"),
+                $"Unsupported content type: 0x{contentType:X4}"),
         };
 
         var version = BinaryPrimitives.ReadUInt16LittleEndian(header[10..12]);
@@ -59,7 +59,7 @@ internal static class PffHeaderReader
             0x000E or 0x000F => PffLayout.Ansi32,
             0x0017 => PffLayout.Unicode64,
             0x0024 => PffLayout.Unicode64_4K,
-            _ => throw new PffFormatException($"未対応の PFF バージョンです: 0x{version:X4}"),
+            _ => throw new PffFormatException($"Unsupported PFF version: 0x{version:X4}"),
         };
 
         var clientVersion = BinaryPrimitives.ReadUInt16LittleEndian(header[12..14]);
