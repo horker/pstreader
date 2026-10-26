@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace PstReader.Cli;
 
 internal static class CliParser
@@ -88,7 +86,7 @@ internal static class CliParser
                         return Failure(timeZoneValueError!);
                     }
 
-                    if (!TryResolveTimeZone(timeZoneValue!, out outputTimeZone, out var timeZoneError))
+                    if (!ReaderDateTime.TryResolveTimeZone(timeZoneValue!, out outputTimeZone, out var timeZoneError))
                     {
                         return Failure(timeZoneError!);
                     }
@@ -188,105 +186,7 @@ internal static class CliParser
             return false;
         }
 
-        if (HasExplicitOffset(text!))
-        {
-            if (!DateTimeOffset.TryParse(
-                    text,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AdjustToUniversal,
-                    out var parsed))
-            {
-                value = null;
-                error = $"Cannot parse the date for {option}: {text}";
-                return false;
-            }
-
-            value = parsed.ToUniversalTime();
-            error = null;
-            return true;
-        }
-
-        if (!DateTime.TryParse(
-                text,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces,
-                out var parsedLocal))
-        {
-            value = null;
-            error = $"Cannot parse the date for {option}: {text}";
-            return false;
-        }
-
-        parsedLocal = DateTime.SpecifyKind(parsedLocal, DateTimeKind.Unspecified);
-        if (TimeZoneInfo.Local.IsInvalidTime(parsedLocal))
-        {
-            value = null;
-            error = $"{option} is an invalid time in the local time zone. Specify a UTC offset: {text}";
-            return false;
-        }
-
-        if (TimeZoneInfo.Local.IsAmbiguousTime(parsedLocal))
-        {
-            value = null;
-            error = $"{option} is ambiguous in the local time zone. Specify a UTC offset: {text}";
-            return false;
-        }
-
-        var utc = TimeZoneInfo.ConvertTimeToUtc(parsedLocal, TimeZoneInfo.Local);
-        value = new DateTimeOffset(utc, TimeSpan.Zero);
-        error = null;
-        return true;
-    }
-
-    private static bool HasExplicitOffset(string text)
-    {
-        var trimmed = text.Trim();
-        if (trimmed.EndsWith("Z", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var timeSeparator = Math.Max(trimmed.LastIndexOf('T'), trimmed.LastIndexOf(' '));
-        if (timeSeparator < 0)
-        {
-            return false;
-        }
-
-        return trimmed.IndexOf('+', timeSeparator + 1) >= 0 ||
-               trimmed.IndexOf('-', timeSeparator + 1) >= 0;
-    }
-
-    private static bool TryResolveTimeZone(
-        string value,
-        out TimeZoneInfo timeZone,
-        out string? error)
-    {
-        if (value.Equals("local", StringComparison.OrdinalIgnoreCase))
-        {
-            timeZone = TimeZoneInfo.Local;
-            error = null;
-            return true;
-        }
-
-        if (value.Equals("utc", StringComparison.OrdinalIgnoreCase))
-        {
-            timeZone = TimeZoneInfo.Utc;
-            error = null;
-            return true;
-        }
-
-        try
-        {
-            timeZone = TimeZoneInfo.FindSystemTimeZoneById(value);
-            error = null;
-            return true;
-        }
-        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
-        {
-            timeZone = TimeZoneInfo.Local;
-            error = $"Output time zone not found or its definition is invalid: {value}";
-            return false;
-        }
+        return ReaderDateTime.TryParse(text!, option, out value, out error);
     }
 
     private static CliParseResult Failure(string error) => new(null, error, false);

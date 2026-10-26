@@ -66,8 +66,8 @@ internal sealed partial class XstStoreService
         var progressValue = FindNamed(properties, TaskPropertySet, 0x8102)?.Value;
         double? progress = progressValue switch
         {
-            double value when double.IsFinite(value) => value * 100,
-            float value when float.IsFinite(value) => value * 100d,
+            double value when !double.IsNaN(value) && !double.IsInfinity(value) => value * 100,
+            float value when !float.IsNaN(value) && !float.IsInfinity(value) => value * 100d,
             _ => null,
         };
         var (body, bodyFormat) = includeBody ? ExtractBody(message) : (null, null);

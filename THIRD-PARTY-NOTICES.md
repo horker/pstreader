@@ -17,3 +17,9 @@ strict trailer check is disabled to retain the original XstReader behavior;
 the format is undocumented and the strict check rejects valid Outlook OSTs.
 `Message.GetBodyAsHtmlString` also has an optional mode that preserves decoded
 Unicode characters instead of converting them to numeric HTML entities.
+
+The parser also builds for .NET Framework 4.7.2 and .NET Standard 2.0 for the
+PowerShell module. Older frameworks use a compatibility implementation of
+`Stream.ReadExactly` that loops over partial reads and throws on premature EOF.
+The .NET Framework build references `System.Security`; other portable builds
+reference `System.Security.Cryptography.Pkcs` 10.0.13.

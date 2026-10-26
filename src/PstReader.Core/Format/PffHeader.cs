@@ -1,5 +1,3 @@
-using System.Buffers.Binary;
-
 namespace PstReader.Format;
 
 internal enum PffStoreKind
@@ -23,12 +21,10 @@ internal sealed record PffHeader(
     int PageSize,
     long FileSize);
 
-internal sealed class PffFormatException(string message) : IOException(message);
+public sealed class PffFormatException(string message) : IOException(message);
 
 internal static class PffHeaderReader
 {
-    private static ReadOnlySpan<byte> Magic => [0x21, 0x42, 0x44, 0x4E];
-
     public static PffHeader Read(string path)
     {
         using var stream = new FileStream(
@@ -37,15 +33,21 @@ internal static class PffHeaderReader
             FileAccess.Read,
             FileShare.ReadWrite | FileShare.Delete);
 
-        Span<byte> header = stackalloc byte[32];
-        stream.ReadExactly(header);
+        var header = new byte[32];
+        var offset = 0;
+        while (offset < header.Length)
+        {
+            var read = stream.Read(header, offset, header.Length - offset);
+            if (read == 0) throw new EndOfStreamException();
+            offset += read;
+        }
 
-        if (!header[..4].SequenceEqual(Magic))
+        if (header[0] != 0x21 || header[1] != 0x42 || header[2] != 0x44 || header[3] != 0x4E)
         {
             throw new PffFormatException("The PST/OST !BDN signature is missing.");
         }
 
-        var storeKind = BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]) switch
+        var storeKind = ReadUInt16(header, 8) switch
         {
             0x4D53 => PffStoreKind.Pst,
             0x4F53 => PffStoreKind.Ost,
@@ -53,7 +55,7 @@ internal static class PffHeaderReader
                 $"Unsupported content type: 0x{contentType:X4}"),
         };
 
-        var version = BinaryPrimitives.ReadUInt16LittleEndian(header[10..12]);
+        var version = ReadUInt16(header, 10);
         var layout = version switch
         {
             0x000E or 0x000F => PffLayout.Ansi32,
@@ -62,7 +64,7 @@ internal static class PffHeaderReader
             _ => throw new PffFormatException($"Unsupported PFF version: 0x{version:X4}"),
         };
 
-        var clientVersion = BinaryPrimitives.ReadUInt16LittleEndian(header[12..14]);
+        var clientVersion = ReadUInt16(header, 12);
         return new PffHeader(
             storeKind,
             version,
@@ -71,4 +73,7 @@ internal static class PffHeaderReader
             layout is PffLayout.Unicode64_4K ? 4096 : 512,
             stream.Length);
     }
+
+    private static ushort ReadUInt16(byte[] bytes, int offset) =>
+        (ushort)(bytes[offset] | (bytes[offset + 1] << 8));
 }

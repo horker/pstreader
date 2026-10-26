@@ -140,8 +140,8 @@ internal static class OutputSerializer
         WriteItemRows(writer,
             ["folderPath", "subject", "start", "due", "completed", "status", "percentComplete", "isComplete", "messageClass"],
             items.Select(item => new object?[] { item.FolderPath, item.Subject,
-                ConvertDate(item.Start, outputTimeZone), ConvertDate(item.Due, outputTimeZone),
-                ConvertDate(item.Completed, outputTimeZone), item.Status, item.PercentComplete,
+                ReaderDateTime.ConvertDate(item.Start, outputTimeZone), ReaderDateTime.ConvertDate(item.Due, outputTimeZone),
+                ReaderDateTime.ConvertDate(item.Completed, outputTimeZone), item.Status, item.PercentComplete,
                 item.IsComplete, item.MessageClass, item.Body, item.BodyFormat }), format, includeBody);
 
     public static void WriteMail(TextWriter writer, IReadOnlyList<MailItem> items, OutputFormat format,
@@ -151,12 +151,9 @@ internal static class OutputSerializer
                 "received", "sent", "isRead", "hasAttachments", "flagStatus", "messageClass"],
             items.Select(item => new object?[] { item.FolderPath, item.Subject, item.SenderName,
                 item.SenderAddress, item.To, item.Cc, item.Bcc,
-                ConvertDate(item.Received, outputTimeZone), ConvertDate(item.Sent, outputTimeZone),
+                ReaderDateTime.ConvertDate(item.Received, outputTimeZone), ReaderDateTime.ConvertDate(item.Sent, outputTimeZone),
                 item.IsRead, item.HasAttachments, item.FlagStatus, item.MessageClass, item.Body, item.BodyFormat }),
             format, includeBody);
-
-    private static DateTimeOffset? ConvertDate(DateTimeOffset? value, TimeZoneInfo zone) =>
-        value is null ? null : TimeZoneInfo.ConvertTime(value.Value, zone);
 
     private static void WriteItemRows(TextWriter writer, string[] columns, IEnumerable<object?[]> rows,
         OutputFormat format, bool includeBody)

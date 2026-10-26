@@ -1,6 +1,5 @@
 using PstReader.Format;
 using PstReader.Output;
-using PstReader.Services;
 
 namespace PstReader.Cli;
 
@@ -25,8 +24,7 @@ internal static class CliApplication
         var options = parsed.Options!;
         try
         {
-            var header = PffHeaderReader.Read(options.InputPath);
-            var service = new XstStoreService(options.InputPath, header);
+            var service = new PstStore(options.InputPath);
             using var writerScope = new WriterScope(
                 OutputSerializer.CreateWriter(options.OutputPath, output),
                 output);

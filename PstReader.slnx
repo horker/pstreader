@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="src/PstReader.Core/PstReader.Core.csproj" />
+  <Project Path="src/PstReader.PowerShell.Loader/PstReader.PowerShell.Loader.csproj" />
   <Project Path="src/PstReader/PstReader.csproj" />
   <Project Path="tests/PstReader.Tests/PstReader.Tests.csproj" />
 </Solution>

@@ -11,6 +11,19 @@ namespace XstReader
 {
     static public class Extensions
     {
+#if NETSTANDARD2_0 || NET472
+        // Stream.Read may return fewer bytes than requested even before EOF.
+        internal static void ReadExactly(this Stream stream, byte[] buffer, int offset, int count)
+        {
+            while (count > 0)
+            {
+                var read = stream.Read(buffer, offset, count);
+                if (read == 0) throw new EndOfStreamException();
+                offset += read;
+                count -= read;
+            }
+        }
+#endif
         public static string Truncate(this string value, int maxLength)
         {
             if (string.IsNullOrEmpty(value)) return value;

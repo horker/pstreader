@@ -1,13 +1,47 @@
 # pstreader
 
-`pstreader` is a Windows CLI that reads PST/OST files without Microsoft Outlook,
+`pstreader` provides a Windows CLI and a PowerShell module that read PST/OST files without Microsoft Outlook,
 Office, MAPI, or an external runtime. It runs with standard user privileges and
 exports store information, folder structures, calendar items, tasks, and mail as
 JSON or CSV.
 
 The parser is implemented in C# and includes the source for the XstReader-derived
 `XstReader.Base` library. The distribution build is a self-contained, single EXE
-that includes the .NET runtime.
+that includes the .NET runtime. Both interfaces use the shared `PstReader.Core`
+library. The module supports Windows PowerShell 5.1 (.NET Framework 4.7.2 or later)
+and PowerShell 7.0 and later.
+
+## PowerShell module
+
+Build the module with the .NET 10 SDK, then import it in either PowerShell edition:
+
+```powershell
+.\scripts\publish-module.ps1
+Import-Module .\artifacts\PowerShell\PstReader\PstReader.psd1
+
+Get-PstStore -LiteralPath C:\Data\archive.pst
+Get-PstFolder -LiteralPath C:\Data\archive.pst
+Get-PstCalendarItem -LiteralPath C:\Data\archive.pst `
+    -From '2026-01-01' -To '2026-02-01' -TimeZone utc -IncludeBody
+Get-PstTask -LiteralPath C:\Data\archive.pst -DateField due
+Get-ChildItem C:\Data\*.pst | Get-PstMail -FlaggedOnly |
+    Select-Object Subject, SenderAddress, Received |
+    Export-Csv .\flagged-mail.csv -NoTypeInformation -Encoding UTF8
+```
+
+The five commands return typed .NET objects, one record at a time, with
+`DateTimeOffset`, Boolean, numeric, and nullable properties. Use PowerShell's
+`Where-Object`, `Select-Object`, `Export-Csv`, and `ConvertTo-Json` to process or
+export them. `-Path` supports wildcards and arrays; `-LiteralPath` handles filenames
+containing brackets. `Get-ChildItem` objects and `Get-PstStore` output can be piped
+into the other commands. Read failures use the error stream; `-ErrorAction Stop`
+stops processing. Skipped corrupt items use the warning stream.
+
+Copy the entire `artifacts/PowerShell/PstReader` directory to a directory on the
+target shell's `$env:PSModulePath` to enable `Import-Module PstReader`. No SDK or
+Outlook installation is needed on the target machine. The CLI's deployment and
+arguments remain unchanged. See the [module guide](src/PstReader.PowerShell/PstReader/README.md)
+for parameters, installation, compatibility, and the library API.
 
 ## Features
 
@@ -231,7 +265,25 @@ Use the .NET 10 SDK.
 ```powershell
 dotnet build .\PstReader.slnx -c Release
 dotnet test .\tests\PstReader.Tests\PstReader.Tests.csproj -c Release
+.\scripts\publish-module.ps1
+pwsh -NoProfile -File .\tests\PowerShell\Module.Tests.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\PowerShell\Module.Tests.ps1
 ```
+
+The last command permits scripts only for that test process; it does not change
+the machine's execution policy. Module tests also run on PowerShell 7.0.13. They
+exercise public command binding, paths, types, warning/error handling, dependency
+loading, and exports using synthetic records and invalid files; they do not
+replace validation against representative real PST/OST files.
+
+### Project layout
+
+- `src/PstReader.Core`: shared header detection, folder/item reading, filtering,
+  models, date parsing, and time-zone conversion (`net10.0`, `net472`, `netstandard2.0`).
+- `src/PstReader`: CLI arguments, JSON/CSV serialization, and exit codes.
+- `src/PstReader.PowerShell`: manifest, advanced functions, help, and display properties.
+- `src/PstReader.PowerShell.Loader`: isolated parser dependency loading on PowerShell 7.
+- `src/ThirdParty/XstReader.Base`: the underlying PST/OST parser.
 
 ### Publish a single EXE
 
